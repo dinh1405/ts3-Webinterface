@@ -1,0 +1,21 @@
+# Abhängigkeiten und Build
+node_modules/
+web/dist/
+release/
+*.tar.gz
+*.tgz
+
+# Laufzeitdaten (Benutzer, Einstellungen, Historie, Backups)
+data/
+backups/
+.tmp/
+
+# Geheimnisse
+.env
+.env.*
+!.env.example
+
+# Sonstiges
+*.log
+.DS_Store
+Thumbs.db

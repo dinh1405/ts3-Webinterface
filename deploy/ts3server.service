@@ -1,0 +1,31 @@
+# OPTIONAL: systemd unit for the TeamSpeak 3 server itself (auto-start after reboot).
+# Adjust User/Group and the paths to your installation.
+#
+# Installation:
+#   cp deploy/ts3server.service /etc/systemd/system/ts3server.service
+#   systemctl daemon-reload && systemctl enable ts3server
+#   # take over a server that is currently running via the start script:
+#   sudo -u teamspeak /opt/teamspeak3-server_linux_amd64/ts3server_startscript.sh stop
+#   systemctl start ts3server
+#
+# Then switch the webinterface to control mode "systemd" (unit ts3server, "use sudo" on)
+# and add /etc/sudoers.d/ts3-webinterface:
+#   teamspeak ALL=(root) NOPASSWD: /bin/systemctl start ts3server, /bin/systemctl stop ts3server, /bin/systemctl restart ts3server
+
+[Unit]
+Description=TeamSpeak 3 Server
+After=network.target
+
+[Service]
+Type=forking
+User=teamspeak
+Group=teamspeak
+WorkingDirectory=/opt/teamspeak3-server_linux_amd64
+ExecStart=/opt/teamspeak3-server_linux_amd64/ts3server_startscript.sh start inifile=ts3server.ini
+ExecStop=/opt/teamspeak3-server_linux_amd64/ts3server_startscript.sh stop
+PIDFile=/opt/teamspeak3-server_linux_amd64/ts3server.pid
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

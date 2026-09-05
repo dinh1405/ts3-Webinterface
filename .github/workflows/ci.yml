@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+      - run: node scripts/i18n-check.mjs
+      - name: Release package builds
+        run: node scripts/build-release.mjs --no-build && tar -tzf release/ts3-webinterface-*.tar.gz | head -5
+      - name: Server modules load
+        run: node --check server/index.js && for f in server/lib/*.js server/routes/*.js; do node --check "$f"; done
+      - name: Shell scripts
+        run: bash -n deploy/install.sh && (test -f deploy/ts3web && bash -n deploy/ts3web || true)
+      - uses: ludeeus/action-shellcheck@2.0.0
+        with:
+          scandir: ./deploy
+          severity: warning
