@@ -119,6 +119,7 @@ Everything can be changed later under **Settings → Connection & installation**
 | **Watchdog** | Checks the TS3 process regularly, restarts it after a crash (limit per hour, then notification), autostart when the web interface service starts (= after reboot); stopping the server deliberately pauses the watchdog |
 | **Notifications** | Discord webhook, Telegram bot, e-mail (local sendmail), generic webhook with HMAC signature; selectable events (server stop/restart, watchdog, backups, updates, bans, kicks, login lock, query loss); test send, history. **System-wide** and **per user** (My account) – each in the recipient's language |
 | **Drag & drop** | Move clients into channels, sort channels (top/bottom edge) or nest them as sub-channels (middle) |
+| **Webinterface update** | System → Webinterface: version check against GitHub releases, update by click with automatic restart and rollback (see [Updating](#updating-rollback-uninstall)) |
 | **TS3 update** | Version check against the TeamSpeak version feed, update by click: download, SHA-256, extract, backup, stop, old files to `.previous-version/`, new files, start, version confirmation; automatic rollback on error, manual rollback |
 | **Users** | Login, roles `admin` / `operator` / `viewer`, language per user, password reset, enable/disable |
 | **Audit log** | Who did what and when (incl. failed logins) |
@@ -197,6 +198,10 @@ Env-only (need a restart): `HOST`, `PORT`, `JWT_SECRET`, `SESSION_HOURS`, `LOGIN
 | `TS3_SERVER_PORT` / `TS3_SERVER_ID` | `9987` / `0` | Which virtual server is managed |
 
 ## Updating, rollback, uninstall
+
+In the browser: **System → Webinterface** shows the installed and the latest version with release notes; administrators can update
+by click. The service downloads and verifies the package, swaps the files, restarts itself (about five seconds) and rolls back
+automatically if the new version fails to start. On the command line:
 
 ```bash
 sudo ts3web update                 # latest release (keeps .env, data/, backups/; old version in .previous/)

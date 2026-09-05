@@ -114,6 +114,14 @@ export interface UserNotificationSettings {
 }
 
 export interface UpdateStep { ts: string; msg: string }
+export interface SelfUpdateRelease { version: string; name: string; notes: string; publishedAt: string | null; url: string | null; assetUrl: string | null; shaUrl: string | null; size: number | null }
+export interface SelfUpdateSummary {
+  current: string; isRelease: boolean; canUpdate: boolean; reasons: ('notLinux' | 'notRelease' | 'notWritable' | 'npmMissing' | 'tarMissing')[];
+  restartMode: 'systemd' | 'manual'; rootDir: string; repo: string; checkedAt: number | null; latest: SelfUpdateRelease | null; updateAvailable: boolean; checkError: string | null;
+  running: { version: string; from: string; startedAt: string; steps: UpdateStep[]; by: string; restart: boolean } | null;
+  lastResult: { ok: boolean; from: string; to: string; finishedAt?: string; error?: string; steps?: UpdateStep[]; restart?: boolean; confirmedAt?: string; rolledBack?: boolean; version?: string } | null;
+  previousVersion: string | null; pending: boolean;
+}
 export interface UpdateSummary {
   checkedAt: number | null;
   current: string | null;

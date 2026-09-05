@@ -114,7 +114,7 @@ case $CMD in
     echo "Rolling back to $prev …"
     systemctl stop "$SERVICE"
     mkdir -p "$APP_DIR/.rollback-tmp"
-    for entry in server web deploy node_modules package.json package-lock.json VERSION README.md README.de.md CHANGELOG.md LICENSE SECURITY.md .env.example; do
+    for entry in server web deploy docs node_modules package.json package-lock.json VERSION README.md README.de.md CHANGELOG.md LICENSE SECURITY.md CONTRIBUTING.md .env.example; do
       [[ -e $APP_DIR/$entry ]] && mv "$APP_DIR/$entry" "$APP_DIR/.rollback-tmp/"
       [[ -e $APP_DIR/.previous/$entry ]] && mv "$APP_DIR/.previous/$entry" "$APP_DIR/"
     done

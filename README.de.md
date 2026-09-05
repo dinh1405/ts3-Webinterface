@@ -119,6 +119,7 @@ Alles lässt sich später unter **Einstellungen → Verbindung & Installation** 
 | **Watchdog** | Prüft den TS3-Prozess regelmäßig, startet ihn nach Absturz neu (Limit pro Stunde, danach Benachrichtigung), Autostart beim Start des Webinterface-Dienstes (= nach Reboot); bewusstes Stoppen pausiert den Watchdog |
 | **Benachrichtigungen** | Discord-Webhook, Telegram-Bot, E-Mail (lokales sendmail), generischer Webhook mit HMAC-Signatur; wählbare Ereignisse (Serverstopp/-neustart, Watchdog, Backups, Updates, Bans, Kicks, Login-Sperre, Query-Verlust); Testversand, Verlauf. **Systemweit** und **pro Benutzer** (Mein Konto) – jeweils in der Sprache des Empfängers |
 | **Drag & Drop** | Clients in Kanäle ziehen, Kanäle umsortieren (oberer/unterer Rand) oder als Unterkanal einsortieren (Mitte) |
+| **Webinterface-Update** | System → Webinterface: Versionsprüfung gegen die GitHub-Releases, Update per Klick mit automatischem Neustart und Rollback (siehe [Update](#update-rollback-deinstallation)) |
 | **TS3-Update** | Versionsprüfung gegen den TeamSpeak-Versionsfeed, Update per Klick: Download, SHA-256, Entpacken, Sicherung, Stop, alte Dateien nach `.previous-version/`, neue Dateien, Start, Versionsbestätigung; automatischer Rollback bei Fehlern, manueller Rollback |
 | **Benutzer** | Login, Rollen `admin` / `operator` / `viewer`, Sprache pro Benutzer, Passwort zurücksetzen, aktivieren/deaktivieren |
 | **Audit-Log** | Wer hat wann was gemacht (inkl. fehlgeschlagener Logins) |
@@ -197,6 +198,10 @@ Nur per `.env` (Neustart nötig): `HOST`, `PORT`, `JWT_SECRET`, `SESSION_HOURS`,
 | `TS3_SERVER_PORT` / `TS3_SERVER_ID` | `9987` / `0` | Welcher virtuelle Server verwaltet wird |
 
 ## Update, Rollback, Deinstallation
+
+Im Browser: **System → Webinterface** zeigt installierte und aktuelle Version mit Release-Notizen; Administratoren aktualisieren per
+Klick. Der Dienst lädt und prüft das Paket, tauscht die Dateien, startet sich selbst neu (etwa fünf Sekunden) und rollt automatisch
+zurück, falls die neue Version nicht startet. Auf der Kommandozeile:
 
 ```bash
 sudo ts3web update                 # neueste Version (behält .env, data/, backups/; alte Version in .previous/)

@@ -1,74 +1,59 @@
+/**
+ * Bootstrap: startet die Anwendung (main.js) und schützt Selbst-Updates.
+ *
+ * Nach einem Update aus der Oberfläche liegt .update-pending im Installationsverzeichnis und die alte Version in
+ * .previous/. Startet die neue Version zweimal nicht (Importfehler oder Absturz vor dem erfolgreichen Listen),
+ * werden die alten Dateien zurückgeholt und der Prozess beendet – systemd (Restart=always) startet dann wieder
+ * die vorherige Version. Ein erfolgreicher Start entfernt den Marker (main.js → confirmStartup()).
+ *
+ * Diese Datei bewusst klein und ohne Abhängigkeiten halten.
+ */
 import fs from 'node:fs';
-import fsp from 'node:fs/promises';
-import { config, reconfigureHooks } from './config.js';
-import { createApp } from './app.js';
-import { ts3 } from './lib/ts3.js';
-import { applySchedule } from './lib/scheduler.js';
-import { hasUsers } from './lib/users.js';
-import { startWatchdog } from './lib/watchdog.js';
-import { startStats } from './lib/stats.js';
-import { startHistory, stopHistory } from './lib/history.js';
-import { applyWatchdog } from './lib/watchdog.js';
-import { ensureSetupToken, needsSetup } from './lib/setup.js';
-import { appVersion } from './version.js';
-import { ts } from './lib/locale.js';
-import { notify, setServerNameProvider } from './lib/notify.js';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const log = (msg) => console.log(`[${new Date().toISOString()}] ${msg}`);
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const MARKER = path.join(ROOT, '.update-pending');
+const PREVIOUS = path.join(ROOT, '.previous');
+const FAILED = path.join(ROOT, '.failed-update');
+const ENTRIES = ['server', 'web', 'deploy', 'docs', 'node_modules', 'package.json', 'package-lock.json', 'VERSION', 'README.md', 'README.de.md', 'CHANGELOG.md', 'LICENSE', 'SECURITY.md', 'CONTRIBUTING.md', '.env.example'];
+const MAX_ATTEMPTS = 2;
 
-fs.mkdirSync(config.dataDir, { recursive: true });
-fs.mkdirSync(config.backupDir, { recursive: true });
-
-ts3.on('log', (msg) => log(`[ts3] ${msg}`));
-
-// Konfigurationsänderungen zur Laufzeit (Setup-Assistent / Admin-Seite)
-reconfigureHooks.add(async (cfg, changed) => {
-  if (changed.some((k) => k.startsWith('ts3.query'))) await ts3.reconfigure();
-  if (changed.some((k) => k.startsWith('ts3.') && !k.startsWith('ts3.query'))) applyWatchdog();
-  if (changed.includes('backupDir')) await fsp.mkdir(cfg.backupDir, { recursive: true }).catch(() => {});
-  if (changed.length) log(`[config] changed: ${changed.filter((k) => !k.includes('password')).join(', ') || '(password)'}`);
-});
-
-// Benachrichtigungen aus TS3-Ereignissen
-let serverName = null;
-setServerNameProvider(() => serverName || ts('notify.unknownServer'));
-ts3.on('status', async (s) => {
-  if (s.connected) {
-    try {
-      serverName = (await ts3.get().serverInfo()).virtualserverName || serverName;
-    } catch { /* ignore */ }
-  }
-});
-ts3.on('event', (e) => {
-  if (e.type === 'client.banned') notify('clientBanned', e.params || {});
-  else if (e.type === 'client.kicked') notify('clientKicked', e.params || {});
-  else if (e.type === 'query.disconnected' && !ts3.expectingDisconnect) notify('queryLost', { error: ts3.lastError || '?' });
-});
-
-ts3.start();
-applySchedule();
-startWatchdog();
-startStats();
-startHistory();
-
-const app = createApp();
-const server = app.listen(config.port, config.host, () => {
-  log(`TS3 Webinterface ${appVersion()} listening on http://${config.host}:${config.port}`);
-  log(`TS3 directory: ${config.ts3.dir || '(not set)'} · control: ${config.ts3.controlMode} · backups: ${config.backupDir}`);
-  if (needsSetup()) {
-    log(!hasUsers() ? 'No users yet – the setup wizard is available at /setup.' : 'TS3 connection not configured yet – the setup wizard is available at /setup.');
-    ensureSetupToken();
-  } else if (!config.ts3.query.password) log('WARNING: ServerQuery password missing – no connection possible.');
-});
-server.keepAliveTimeout = 65000;
-
-async function shutdown(signal) {
-  log(`${signal} received – shutting down …`);
-  server.close();
-  await stopHistory();
-  await ts3.stop();
-  process.exit(0);
+function readMarker() {
+  try { return JSON.parse(fs.readFileSync(MARKER, 'utf8')); } catch { return null; }
 }
-process.on('SIGINT', () => shutdown('SIGINT'));
-process.on('SIGTERM', () => shutdown('SIGTERM'));
-process.on('unhandledRejection', (e) => console.error('[unhandledRejection]', e));
+
+function rollback(marker, reason) {
+  console.error(`[bootstrap] rolling back to ${marker.from}: ${reason}`);
+  fs.rmSync(FAILED, { recursive: true, force: true });
+  fs.mkdirSync(FAILED, { recursive: true });
+  for (const name of ENTRIES) {
+    const cur = path.join(ROOT, name);
+    const prev = path.join(PREVIOUS, name);
+    try { if (fs.existsSync(cur)) fs.renameSync(cur, path.join(FAILED, name)); } catch (e) { console.error(`[bootstrap] cannot move ${name}: ${e.message}`); }
+    try { if (fs.existsSync(prev)) fs.renameSync(prev, cur); } catch (e) { console.error(`[bootstrap] cannot restore ${name}: ${e.message}`); }
+  }
+  fs.rmSync(PREVIOUS, { recursive: true, force: true });
+  fs.rmSync(MARKER, { force: true });
+  try {
+    fs.writeFileSync(path.join(ROOT, '.update-last.json'), JSON.stringify({ ...marker, ok: false, rolledBack: true, error: reason, finishedAt: new Date().toISOString() }, null, 2));
+  } catch { /* ignore */ }
+}
+
+const marker = readMarker();
+if (marker && fs.existsSync(PREVIOUS)) {
+  marker.attempts = (marker.attempts || 0) + 1;
+  if (marker.attempts > MAX_ATTEMPTS) {
+    rollback(marker, `version ${marker.to} did not start successfully after ${MAX_ATTEMPTS} attempts`);
+    process.exit(1);
+  }
+  try { fs.writeFileSync(MARKER, JSON.stringify(marker)); } catch { /* ignore */ }
+}
+
+try {
+  await import('./main.js');
+} catch (e) {
+  console.error('[bootstrap] start failed:', e);
+  if (marker && fs.existsSync(PREVIOUS) && marker.attempts >= MAX_ATTEMPTS) rollback(marker, `start failed: ${e.message}`);
+  process.exit(1);
+}

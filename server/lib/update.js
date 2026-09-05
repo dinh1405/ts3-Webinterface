@@ -120,12 +120,12 @@ export function runCmd(cmd, args, opts = {}) {
   });
 }
 
-export async function downloadFile(url, dest) {
+export async function downloadFile(url, dest, { minBytes = 1024 * 1024 } = {}) {
   const res = await fetch(url, { signal: AbortSignal.timeout(10 * 60 * 1000), headers: { 'User-Agent': 'ts3-webinterface' } });
   if (!res.ok || !res.body) throw new Error(ts('update.log.downloadFailed', { status: res.status }));
   await pipeline(Readable.fromWeb(res.body), fs.createWriteStream(dest));
   const st = await fsp.stat(dest);
-  if (st.size < 1024 * 1024) throw new Error(ts('update.log.downloadSmall', { bytes: st.size }));
+  if (st.size < minBytes) throw new Error(ts('update.log.downloadSmall', { bytes: st.size }));
   return st.size;
 }
 

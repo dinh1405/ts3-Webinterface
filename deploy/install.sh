@@ -432,7 +432,7 @@ if [[ $MODE == update ]]; then
   systemctl stop "$SERVICE" >/dev/null 2>&1 || true
   rm -rf "$APP_DIR/.previous"
   mkdir -p "$APP_DIR/.previous"
-  for entry in server web deploy node_modules package.json package-lock.json VERSION README.md README.de.md CHANGELOG.md LICENSE SECURITY.md .env.example; do
+  for entry in server web deploy docs node_modules package.json package-lock.json VERSION README.md README.de.md CHANGELOG.md LICENSE SECURITY.md CONTRIBUTING.md .env.example; do
     [[ -e $APP_DIR/$entry ]] && mv "$APP_DIR/$entry" "$APP_DIR/.previous/"
   done
 else

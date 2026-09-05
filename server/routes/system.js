@@ -7,6 +7,7 @@ import * as watchdog from '../lib/watchdog.js';
 import { notifyState, testChannel, EVENT_KEYS, eventLabels } from '../lib/notify.js';
 import { resolveLocale } from '../lib/locale.js';
 import { checkForUpdate, runUpdate, rollback, updateSummary } from '../lib/update.js';
+import { checkSelfUpdate, runSelfUpdate, selfUpdateSummary } from '../lib/selfupdate.js';
 import { audit } from '../lib/audit.js';
 
 const router = Router();
@@ -118,6 +119,26 @@ router.post('/update/rollback', requireCap('update.run'), asyncHandler(async (re
   rollback({ username: req.user.username }).catch(() => {});
   await new Promise((r) => setTimeout(r, 300));
   res.status(202).json(await updateSummary());
+}));
+
+/* ---------------- Webinterface-Update (Selbst-Update) ---------------- */
+router.get('/selfupdate', requireCap('system.view'), asyncHandler(async (req, res) => {
+  res.json(await checkSelfUpdate(false));
+}));
+
+router.post('/selfupdate/check', requireCap('system.view'), asyncHandler(async (req, res) => {
+  res.json(await checkSelfUpdate(true));
+}));
+
+router.post('/selfupdate/run', requireCap('system.manage'), asyncHandler(async (req, res) => {
+  const { version, confirm, restart } = z.object({ version: z.string().max(20).optional(), confirm: z.string(), restart: z.boolean().optional() }).parse(req.body || {});
+  if (confirm !== 'UPDATE') throw new HttpError(400, 'errors.confirmMissing', { word: 'UPDATE' });
+  audit(req, 'selfupdate.start', { version: version || 'latest' });
+  const p = runSelfUpdate({ version, username: req.user.username, restart });
+  p.catch(() => {});
+  // Frühe Fehler (Voraussetzungen, Version) sofort melden; danach läuft der Job im Hintergrund weiter
+  await Promise.race([p, new Promise((r) => setTimeout(r, 400))]);
+  res.status(202).json(await selfUpdateSummary());
 }));
 
 export default router;

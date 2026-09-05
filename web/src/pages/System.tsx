@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { clsx } from 'clsx';
-import { Bell, CheckCircle2, Download, HeartPulse, History, RefreshCw, RotateCcw, Save, XCircle } from 'lucide-react';
+import { Bell, CheckCircle2, Download, HeartPulse, History, RefreshCw, RotateCcw, Save, XCircle, Package } from 'lucide-react';
 import { api, errorMessage } from '../api/client';
+import { SelfUpdateTab } from '../components/SelfUpdateTab';
 import type { NotificationSettings, NotificationState, UpdateSummary, WatchdogState } from '../api/types';
 import { useAuth } from '../lib/auth';
 import { formatDate, formatRelative, formatTime } from '../lib/format';
@@ -11,7 +12,7 @@ import { useT } from '../i18n';
 import { Badge, Button, Card, ConfirmDialog, EmptyState, ErrorBox, Field, FullPageSpinner, KV, PageHeader, Toggle } from '../components/ui';
 import { NotificationForm } from '../components/NotificationForm';
 
-type Tab = 'watchdog' | 'notifications' | 'update';
+type Tab = 'watchdog' | 'notifications' | 'update' | 'webinterface';
 
 export default function SystemPage() {
   const { t } = useT();
@@ -20,7 +21,7 @@ export default function SystemPage() {
     <div>
       <PageHeader title={t('system.title')} description={t('system.description')} />
       <div className="mb-4 flex w-fit gap-1 rounded-lg border border-slate-800 bg-slate-900/60 p-1">
-        {([['watchdog', t('system.tab.watchdog'), HeartPulse], ['notifications', t('system.tab.notifications'), Bell], ['update', t('system.tab.update'), Download]] as const).map(([key, label, Icon]) => (
+        {([['watchdog', t('system.tab.watchdog'), HeartPulse], ['notifications', t('system.tab.notifications'), Bell], ['update', t('system.tab.update'), Download], ['webinterface', t('system.tab.webinterface'), Package]] as const).map(([key, label, Icon]) => (
           <button key={key} onClick={() => setTab(key)} className={clsx('flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition', tab === key ? 'bg-indigo-500/20 text-indigo-200' : 'text-slate-400 hover:text-slate-100')}>
             <Icon className="h-4 w-4" />{label}
           </button>
@@ -29,6 +30,7 @@ export default function SystemPage() {
       {tab === 'watchdog' && <WatchdogTab />}
       {tab === 'notifications' && <NotificationsTab />}
       {tab === 'update' && <UpdateTab />}
+      {tab === 'webinterface' && <SelfUpdateTab />}
     </div>
   );
 }

@@ -5,6 +5,19 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.2.0] – 2026-09-05
+
+### Added
+- **Update the webinterface from the browser** (System → Webinterface): version check against GitHub releases with release notes,
+  update by click (download, SHA-256, `npm ci` in a staging directory, file swap, automatic restart under systemd) and
+  automatic rollback if the new version fails to start twice. Data, backups and `.env` are never touched.
+- Installer: prefers a system-wide Node.js, sets the SELinux boolean for the nginx proxy, opens the needed ports in ufw/firewalld
+  (`--no-firewall` to skip), documented limits (other package managers, old glibc, no systemd, ARM64).
+- Screenshots in the README (demo data).
+
+### Changed
+- `server/index.js` is now a small bootstrap that starts `server/main.js` and guards self-updates.
+
 ## [1.1.0] – 2026-09-05
 
 ### Added
