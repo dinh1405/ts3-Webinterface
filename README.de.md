@@ -135,7 +135,8 @@ Rollen: **Administrator** (immer alle Rechte), **Operator** und **Beobachter** m
 - TeamSpeak-3-Server mit aktiviertem ServerQuery (raw 10011 oder ssh 10022) und `serveradmin`-Passwort – oder der Assistent installiert einen.
 - Für Start/Stopp, Backups, Logs und Updates läuft das Webinterface **auf demselben Host** und **als derselbe Benutzer** wie der TS3-Server
   (oder mit sudoers-Regel für systemd/Docker). Reiner ServerQuery-Betrieb (Steuerung `none`) geht von jedem Host aus.
-- `sqlite3`-CLI für konsistente Datenbank-Backups (installiert der Installer; sonst Fallback auf Dateikopie).
+- Konsistente Datenbank-Backups brauchen Node.js ≥ 22.16 (`node:sqlite`, kein Zusatzprogramm) **oder** die `sqlite3`-CLI (installiert der Installer).
+  Ohne beides gibt es Backups nur bei gestopptem TS3-Server (reine Dateikopie).
 
 **Bekannte Grenzen des Installers** (manuelle Installation geht trotzdem):
 
@@ -247,9 +248,10 @@ sudo ts3web uninstall [--purge]    # entfernen (purge löscht auch Daten, Backup
 
 ## Backups
 
-- **ZIP-Backup**: `ts3server.sqlitedb` (per `sqlite3 .backup`, WAL-sicher), `files/` (Avatare, Icons, Uploads), `ts3server.ini`,
+- **ZIP-Backup**: `ts3server.sqlitedb` (konsistente Kopie über `node:sqlite` oder `sqlite3 .backup`, WAL-sicher, integritätsgeprüft), `files/` (Avatare, Icons, Uploads), `ts3server.ini`,
   `licensekey.dat`, `query_ip_*.txt`, `ssh_host_rsa_key`, optional `logs/` und eine `backup-info.json`. MariaDB/PostgreSQL-Datenbanken werden **nicht** gesichert (Hinweis im Backup).
 - **Wiederherstellen** (Admins): Sicherheitskopie → TS3 stoppen → Dateien zurückspielen → TS3 starten. Alle Clients werden getrennt.
+- Backups, Wiederherstellungen, Updates, Installation und serveradmin-Reset teilen sich eine **Wartungssperre**; ein Banner zeigt, was gerade läuft.
 - **Snapshots**: `serversnapshotcreate/-deploy` über ServerQuery – Kanäle, Gruppen und Rechte des virtuellen Servers ohne Serverstopp.
 - **Zeitplan**: täglich oder wöchentlich zu einer Uhrzeit (Zeitzone konfigurierbar), Aufbewahrung nach Anzahl; nur automatische Backups werden rotiert.
 
@@ -268,6 +270,7 @@ npm install
 cp .env.example .env         # HOST/PORT/JWT_SECRET; TeamSpeak-Einstellungen über den Assistenten
 npm run dev                  # API auf :8088, Vite-Dev-Server auf :5173 (Proxy → API)
 npm run typecheck            # TypeScript
+npm test                     # Servertests (Vitest + Supertest)
 node scripts/i18n-check.mjs  # Wörterbuch-Abgleich (de/en) und unübersetzte Texte
 node scripts/build-release.mjs   # Release-Paket in release/
 ```

@@ -19,6 +19,14 @@ const log = (msg) => console.log(`[${new Date().toISOString()}] ${msg}`);
 
 fs.mkdirSync(config.dataDir, { recursive: true });
 fs.mkdirSync(config.backupDir, { recursive: true });
+// Startprüfung: Ist das Datenverzeichnis beschreibbar? Sonst gehen Einstellungen, Benutzer und Audit verloren.
+try {
+  const probe = `${config.dataDir}/.write-test`;
+  fs.writeFileSync(probe, String(Date.now()));
+  fs.rmSync(probe, { force: true });
+} catch (e) {
+  console.error(`[startup] WARNING: data directory ${config.dataDir} is not writable (${e.message}). Settings, users and audit entries cannot be saved!`);
+}
 
 ts3.on('log', (msg) => log(`[ts3] ${msg}`));
 

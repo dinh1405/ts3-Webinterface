@@ -5,6 +5,41 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.3.1] – 2026-09-06
+
+Reliability release based on a code review; no new features.
+
+### Added
+- **Maintenance lock**: backups, restores, TS3 updates/rollbacks, webinterface updates, TS3 installation and serveradmin reset
+  now exclude each other through one central lock (`409 maintenance.busy`). A banner shows every signed-in user what is running
+  and who started it; `GET /api/system/maintenance` exposes the state.
+- Backups verify the database copy (`PRAGMA integrity_check`) and record the result (`dbIntegrity`) – shown as a badge in the list.
+- Client history: retention is enforced to the day, including nicknames, IP addresses and countries in `identities.json`
+  (identities with notes keep the notes but lose their connection data). Cleanup runs 5 s after start and every 12 hours;
+  **Clean up now** on the history page; the summary reports the last run.
+- Test foundation: Vitest + Supertest (`npm test`) with first behaviour tests for the JSON store, roles & rights,
+  maintenance lock, backups, update verification and history retention; CI and release workflows run them.
+- Notification event **TS3 update not confirmed** (`updateUnverified`).
+
+### Changed
+- **Consistent SQLite backups without the `sqlite3` CLI**: the backup uses the `node:sqlite` backup API first (Node.js ≥ 22.16),
+  then `sqlite3 .backup`; the plain file copy is only used when the TS3 process is verifiably stopped. With a running server and
+  neither method available the backup fails with a clear message instead of silently producing an inconsistent copy.
+- **TS3 update/rollback report success only after verification**: the process must run, ServerQuery must reconnect and the
+  reported version must match. Otherwise the result is *Verification failed* (`state: unverified | mismatch`) with the reported
+  version, an audit entry marked as failed, the new notification and a direct rollback button.
+- **Write errors are reported**: `JsonStore` rejects when a file cannot be written and reverts the in-memory state to the last
+  saved version; API calls answer `500 errors.storeWrite` instead of pretending success. Audit entries only log the failure.
+  The service warns at startup when the data directory is not writable.
+- Dialogs are fully keyboard-accessible: focus moves into the dialog, Tab/Shift+Tab stay inside, Escape closes the topmost
+  dialog, focus returns to the trigger; `aria-labelledby`/`aria-describedby`, page content is `inert` while a dialog is open.
+- Frontend split into per-page chunks (`React.lazy`), Recharts, icons and React vendor code in their own chunks:
+  the initial download drops from one 1.2 MB bundle to about 520 KB (index + vendor); charts load only on pages that use them.
+- System check shows which SQLite backup method is available (`node:sqlite` / `sqlite3`).
+
+### Fixed
+- The "last seen" timestamp of the current nickname was not updated on repeated connections.
+
 ## [1.3.0] – 2026-09-06
 
 ### Added

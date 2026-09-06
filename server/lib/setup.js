@@ -23,6 +23,8 @@ import { getSettings, updateSettings } from './settings.js';
 import { ts3, probeQuery } from './ts3.js';
 import { buildCommand, runCommand, getProcessStatus, isConfigured, isControlBusy, pidAlive } from './process.js';
 import * as watchdog from './watchdog.js';
+import * as maintenance from './maintenance.js';
+import { sqliteBackupMethods } from './backup.js';
 import { audit } from './audit.js';
 import { isLocale } from '../i18n/index.js';
 
@@ -451,10 +453,12 @@ export async function systemCheck() {
   for (const [key, p] of [['dataDir', config.dataDir], ['backupDir', config.backupDir], ['ts3Dir', config.ts3.dir || null]]) {
     dirs[key] = p ? { path: p, exists: await isDir(p), writable: await access(p, fs.constants.W_OK), owner: await ownerInfo(p), disk: await diskFree(p) } : null;
   }
+  const sqliteBackup = await sqliteBackupMethods().catch(() => ({ nodeSqlite: false, sqlite3: false }));
   return {
     platform: process.platform,
     os: IS_LINUX ? await osRelease() : { name: `${os.type()} ${os.release()}` },
     node: { version: process.versions.node, ok: nodeMajor >= 20 },
+    sqliteBackup,
     user: me,
     isRoot: me.uid === 0,
     tools,
@@ -662,6 +666,7 @@ export function startServerAdminReset(draft, { newPassword, restartToHide = true
   if (resetJob && !resetJob.done) throw new HttpError(409, 'setup.busy');
   const password = newPassword || genPassword();
   if (!/^[A-Za-z0-9._-]{12,64}$/.test(password)) throw new HttpError(400, 'setup.badPassword');
+  const lease = maintenance.acquire('serveradmin-reset', { by: username });
   const job = { id: crypto.randomUUID(), startedAt: new Date().toISOString(), done: false, ok: null, steps: [], result: null };
   resetJob = job;
   const step = (key, detail = '') => job.steps.push({ ts: new Date().toISOString(), key, detail });
@@ -715,6 +720,7 @@ export function startServerAdminReset(draft, { newPassword, restartToHide = true
     } finally {
       job.done = true;
       job.finishedAt = new Date().toISOString();
+      maintenance.release(lease);
       watchdog.release();
     }
   })();

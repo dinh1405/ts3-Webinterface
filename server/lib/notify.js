@@ -10,7 +10,7 @@ const HISTORY_MAX = 50;
 const state = { lastSent: null, lastError: null, history: [] };
 let serverNameProvider = () => 'TeamSpeak server';
 
-export const EVENT_KEYS = ['serverDown', 'serverRestarted', 'watchdogGaveUp', 'backupFailed', 'backupDone', 'updateDone', 'updateFailed', 'clientBanned', 'clientKicked', 'loginBlocked', 'queryLost'];
+export const EVENT_KEYS = ['serverDown', 'serverRestarted', 'watchdogGaveUp', 'backupFailed', 'backupDone', 'updateDone', 'updateUnverified', 'updateFailed', 'clientBanned', 'clientKicked', 'loginBlocked', 'queryLost'];
 
 /** Übersetzte Ereignisbezeichnungen (für die Einstellungsoberfläche). */
 export function eventLabels(locale) {
@@ -30,7 +30,7 @@ function render(event, params, locale) {
 }
 
 const EVENT_COLORS = {
-  serverDown: 0xef4444, watchdogGaveUp: 0xef4444, backupFailed: 0xef4444, updateFailed: 0xef4444, loginBlocked: 0xf59e0b,
+  serverDown: 0xef4444, watchdogGaveUp: 0xef4444, backupFailed: 0xef4444, updateFailed: 0xef4444, updateUnverified: 0xf59e0b, loginBlocked: 0xf59e0b,
   serverRestarted: 0x22c55e, backupDone: 0x22c55e, updateDone: 0x22c55e, clientBanned: 0xf59e0b, clientKicked: 0xf59e0b, queryLost: 0xf59e0b,
 };
 

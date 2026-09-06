@@ -130,7 +130,7 @@ export interface UpdateSummary {
   updateAvailable: boolean;
   checkError: string | null;
   running: { version: string; startedAt: string; steps: UpdateStep[]; by: string; rollback?: boolean } | null;
-  lastResult: { ok: boolean; from?: string; to: string; error?: string; finishedAt: string; steps: UpdateStep[]; rollback?: boolean } | null;
+  lastResult: { ok: boolean; state?: 'ok' | 'unverified' | 'mismatch'; seen?: string | null; from?: string; to: string; error?: string; finishedAt: string; steps: UpdateStep[]; rollback?: boolean } | null;
   previousVersion: string | null;
   ts3Dir: string | null;
 }
@@ -271,6 +271,7 @@ export interface Backup {
   label: string;
   includeLogs: boolean;
   dbMethod: string | null;
+  dbIntegrity: 'ok' | 'failed' | 'unchecked' | null;
   ts3Version: string | null;
   contents: string[];
   notes: string[];
@@ -521,4 +522,8 @@ export interface HistorySummary {
   newIdentitiesWeek: number;
   top: { uid: string; nickname: string; onlineSec: number; online: boolean; country: string }[];
   retentionDays: number;
+  lastCleanup: HistoryCleanupResult | null;
 }
+export interface HistoryCleanupResult { at: string; trigger: string; cutoff: string; keepDays: number; removedFiles: number; removedRows: number; deletedIdentities: number; prunedIdentities: number; prunedVariants: number }
+
+export interface MaintenanceStatus { active: { kind: string; by: string; startedAt: string; detail: string } | null }

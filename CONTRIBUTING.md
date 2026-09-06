@@ -18,6 +18,7 @@ Node.js ≥ 20. No native dependencies – keep it that way (the release package
 
 ```bash
 npm run typecheck             # TypeScript (frontend)
+npm test                      # server tests (Vitest + Supertest; each test file gets a fresh data directory)
 node scripts/i18n-check.mjs   # de/en dictionaries in sync, no hard-coded German/English UI text
 npm run build                 # frontend build
 bash -n deploy/install.sh && bash -n deploy/ts3web
@@ -40,6 +41,15 @@ CI runs the same checks plus shellcheck for `deploy/`.
 - Backend routes validate input with `zod`, check rights with `requireCap('…')` and log state changes with `audit()`.
 - Anything that talks to the TeamSpeak server should tolerate a disconnected ServerQuery (return a 503 with `errors.ts3.unavailable`).
 - Never log or return secrets (query password, JWT secret, notification tokens, setup token).
+
+## Testing
+
+- Server tests live in `test/server/*.test.mjs` and run with Vitest in one process per file (`pool: forks`), because the server
+  modules bind `DATA_DIR`/`BACKUP_DIR` at import time. `test/server/setup.mjs` creates a temporary data directory and sets the
+  environment before the test imports anything from `server/` – always import server modules **dynamically** inside tests.
+- `test/server/helpers.mjs` provides `createTestApp()` (Express app without background services), `makeAdmin()` and
+  `loginAgent()` (Supertest agent with session cookie and CSRF header).
+- Tests that need `node:sqlite` skip themselves on older Node.js versions.
 
 ## Releases (maintainers)
 

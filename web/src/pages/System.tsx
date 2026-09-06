@@ -194,9 +194,17 @@ function UpdateTab() {
         )}
         <p className="mt-4 text-xs text-slate-500">{t('system.upd.flow')}</p>
       </Card>
-      <Card title={u.running ? t('system.upd.runningTitle', { kind: runKind(u.running.rollback) }) : u.lastResult ? t('system.upd.lastRun', { result: u.lastResult.ok ? t('system.upd.success') : t('system.upd.failed') }) : t('system.wd.log')}
+      <Card title={u.running ? t('system.upd.runningTitle', { kind: runKind(u.running.rollback) }) : u.lastResult ? t('system.upd.lastRun', { result: u.lastResult.ok ? t('system.upd.success') : u.lastResult.state && u.lastResult.state !== 'ok' ? t('system.upd.unverifiedTitle') : t('system.upd.failed') }) : t('system.wd.log')}
         subtitle={u.running ? t('system.upd.startedBy', { when: formatRelative(u.running.startedAt), by: u.running.by }) : u.lastResult ? `${runKind(u.lastResult.rollback)} ${u.lastResult.from ? `${u.lastResult.from} → ` : ''}${u.lastResult.to} · ${formatDate(u.lastResult.finishedAt, true)}` : undefined}
         actions={u.running && <RefreshCw className="h-4 w-4 animate-spin text-indigo-400" />} noPadding>
+        {u.lastResult && !u.running && !u.lastResult.ok && u.lastResult.state && u.lastResult.state !== 'ok' && (
+          <div className="m-4 mb-0 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">
+            <p className="font-medium">{t('system.upd.unverifiedTitle')}</p>
+            <p className="mt-1">{u.lastResult.state === 'mismatch' ? t('system.upd.mismatchText', { seen: u.lastResult.seen ?? '?', target: u.lastResult.to }) : t('system.upd.unverifiedText')}</p>
+            <p className="mt-1 text-amber-200/80">{t('system.upd.unverifiedHint')}</p>
+            {isAdmin && u.previousVersion && <Button size="sm" variant="warning" icon={History} className="mt-2" onClick={() => setConfirmRollback(true)}>{t('system.upd.rollbackTo', { version: u.previousVersion })}</Button>}
+          </div>
+        )}
         {steps.length === 0 ? <EmptyState icon={Download} title={t('system.upd.noneYet')} /> : (
           <ol className="max-h-96 space-y-1 overflow-y-auto p-4 font-mono text-xs">
             {steps.map((s, i) => <li key={i} className="flex gap-3"><span className="shrink-0 text-slate-500">{formatTime(s.ts)}</span><span className={clsx(/^(FEHLER|ERROR)/.test(s.msg) ? 'text-rose-300' : /^(Warnung|Warning)/.test(s.msg) ? 'text-amber-300' : 'text-slate-200')}>{s.msg}</span></li>)}

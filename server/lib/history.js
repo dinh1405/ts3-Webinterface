@@ -60,7 +60,7 @@ async function writeAtomic(file, data) {
   await fsp.rename(tmp, file);
 }
 
-async function flush() {
+async function flush({ rethrow = false } = {}) {
   if (!dirty) return;
   dirty = false;
   try {
@@ -69,7 +69,19 @@ async function flush() {
   } catch (e) {
     dirty = true;
     console.warn('[history] save failed:', e.message);
+    if (rethrow) {
+      const err = new Error(`cannot write history: ${e.message}`);
+      err.code = 'STORE_WRITE';
+      err.file = identitiesFile;
+      err.cause = e;
+      throw err;
+    }
   }
+}
+
+/** Speichert ausstehende Änderungen sofort und meldet Schreibfehler (für Notizen aus der API). */
+export function saveNow() {
+  return flush({ rethrow: true });
 }
 
 function appendLine(file, row) {
@@ -127,6 +139,7 @@ function observe(uid, info, t) {
     id.nickname = info.nickname;
     touchVariant(id.nicknames, info.nickname, t);
   } else if (info.nickname && !id.nicknames[info.nickname]) touchVariant(id.nicknames, info.nickname, t);
+  else if (info.nickname) id.nicknames[info.nickname].last = t; // „zuletzt gesehen“ des aktuellen Namens fortschreiben (Aufbewahrung)
   if (info.ip) {
     if (!id.ips[info.ip]) touchVariant(id.ips, info.ip, t); else id.ips[info.ip].last = t;
   }
@@ -287,22 +300,101 @@ export function startHistory() {
   }
   setInterval(() => reconcile(false), RECONCILE_MS).unref?.();
   setInterval(() => flush(), FLUSH_MS).unref?.();
-  setInterval(() => cleanup().catch(() => {}), 12 * 3600 * 1000).unref?.();
-  cleanup().catch(() => {});
+  setInterval(() => cleanup().catch((e) => console.warn('[history] cleanup failed:', e.message)), 12 * 3600 * 1000).unref?.();
+  setTimeout(() => cleanup({ trigger: 'startup' }).catch((e) => console.warn('[history] cleanup failed:', e.message)), 5000).unref?.();
 }
 
 export async function stopHistory() {
   await flush();
 }
 
-async function cleanup() {
-  const keepDays = Math.max(30, Number(getSettings().historyRetentionDays) || 365);
-  const cutoff = monthKey(Date.now() - keepDays * 86400 * 1000);
+export function retentionDays() {
+  return Math.max(30, Number(getSettings().historyRetentionDays) || 365);
+}
+
+let lastCleanup = null; // Ergebnis des letzten Laufs
+let cleanupRunning = null; // laufender Durchlauf (gleichzeitige Aufrufe teilen sich das Ergebnis)
+
+/**
+ * Aufbewahrung taggenau durchsetzen: Sitzungen und Ereignisse älter als der Cutoff werden gelöscht
+ * (ganze Monatsdateien davor, die Grenzmonatsdatei zeilenweise). Aus den Identitäten fliegen Nicknames
+ * und IP-Adressen, die seit dem Cutoff nicht mehr gesehen wurden; Identitäten ohne Kontakt seit dem Cutoff
+ * werden ganz gelöscht – außer sie tragen Notizen (manuelle Daten), dann bleiben sie ohne IPs/Alt-Nicknames.
+ */
+export function cleanup(opts = {}) {
+  if (cleanupRunning) return cleanupRunning;
+  cleanupRunning = runCleanup(opts).finally(() => { cleanupRunning = null; });
+  return cleanupRunning;
+}
+
+async function runCleanup({ now = Date.now(), trigger = 'schedule' } = {}) {
+  const keepDays = retentionDays();
+  const cutoff = now - keepDays * 86400 * 1000;
+  const cutMonth = monthKey(cutoff);
+  const result = { at: new Date(now).toISOString(), trigger, cutoff: new Date(cutoff).toISOString(), keepDays, removedFiles: 0, removedRows: 0, deletedIdentities: 0, prunedIdentities: 0, prunedVariants: 0 };
   const files = await fsp.readdir(dir).catch(() => []);
   for (const f of files) {
     const m = f.match(/^(sessions|events)-(\d{4}-\d{2})\.jsonl$/);
-    if (m && m[2] < cutoff) await fsp.rm(path.join(dir, f), { force: true });
+    if (!m) continue;
+    const file = path.join(dir, f);
+    if (m[2] < cutMonth) {
+      await fsp.rm(file, { force: true });
+      result.removedFiles += 1;
+    } else if (m[2] === cutMonth) {
+      const text = await fsp.readFile(file, 'utf8').catch(() => '');
+      const lines = text.split('\n').filter(Boolean);
+      const kept = lines.filter((line) => {
+        try {
+          const row = JSON.parse(line);
+          const t = m[1] === 'sessions' ? (row.disconnectedAt ?? row.connectedAt) : row.t;
+          return !(Number(t) < cutoff);
+        } catch {
+          return false; // defekte Zeile entsorgen
+        }
+      });
+      if (kept.length !== lines.length) {
+        result.removedRows += lines.length - kept.length;
+        // atomar: Temp-Datei + rename; parallel laufende appendLine-Aufrufe warten über appendQueue
+        await (appendQueue = appendQueue.then(async () => {
+          const tmp = `${file}.${process.pid}.tmp`;
+          await fsp.writeFile(tmp, kept.length ? `${kept.join('\n')}\n` : '');
+          await fsp.rename(tmp, file);
+        }).catch((e) => console.warn('[history] cleanup rewrite failed:', e.message)));
+      }
+    }
   }
+  const onlineUids = new Set([...open.values()].map((s) => s.uid));
+  for (const [uid, id] of identities) {
+    const hasNotes = (id.notes || []).length > 0;
+    const stale = !onlineUids.has(uid) && Number(id.lastSeen || 0) < cutoff;
+    if (stale && !hasNotes) {
+      identities.delete(uid);
+      result.deletedIdentities += 1;
+      continue;
+    }
+    let pruned = 0;
+    for (const [name, v] of Object.entries(id.nicknames || {})) {
+      if (name !== id.nickname && Number(v?.last || 0) < cutoff) { delete id.nicknames[name]; pruned += 1; }
+    }
+    for (const [ip, v] of Object.entries(id.ips || {})) {
+      if (Number(v?.last || 0) < cutoff) { delete id.ips[ip]; pruned += 1; }
+    }
+    if (stale) {
+      // Identität mit Notizen: bleibt, aber ohne Verbindungsdaten
+      pruned += Object.keys(id.ips || {}).length;
+      id.ips = {};
+      id.countries = {};
+    }
+    if (pruned) { result.prunedVariants += pruned; result.prunedIdentities += 1; }
+  }
+  if (result.deletedIdentities || result.prunedIdentities) dirty = true;
+  await flush();
+  lastCleanup = result;
+  return result;
+}
+
+export function lastCleanupInfo() {
+  return lastCleanup;
 }
 
 /* ---------- Abfragen ---------- */
@@ -371,7 +463,8 @@ export async function historySummary() {
     sessionsMonth: sessions.length,
     newIdentitiesWeek: newIdentities,
     top,
-    retentionDays: Math.max(30, Number(getSettings().historyRetentionDays) || 365),
+    retentionDays: retentionDays(),
+    lastCleanup,
   };
 }
 

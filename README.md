@@ -120,7 +120,7 @@ Everything can be changed later under **Settings → Connection & installation**
 | **Notifications** | Discord webhook, Telegram bot, e-mail (local sendmail), generic webhook with HMAC signature; selectable events (server stop/restart, watchdog, backups, updates, bans, kicks, login lock, query loss); test send, history. **System-wide** and **per user** (My account) – each in the recipient's language |
 | **Drag & drop** | Move clients into channels, sort channels (top/bottom edge) or nest them as sub-channels (middle) |
 | **Webinterface update** | System → Webinterface: version check against GitHub releases, update by click with automatic restart and rollback (see [Updating](#updating-rollback-uninstall)) |
-| **TS3 update** | Version check against the TeamSpeak version feed, update by click: download, SHA-256, extract, backup, stop, old files to `.previous-version/`, new files, start, version confirmation; automatic rollback on error, manual rollback |
+| **TS3 update** | Version check against the TeamSpeak version feed, update by click: download, SHA-256, extract, backup, stop, old files to `.previous-version/`, new files, start, **version verification** (success only when the running server reports the target version; otherwise *Verification failed* with rollback button); automatic rollback on error, manual rollback |
 | **Users** | Login, roles `admin` / `operator` / `viewer`, language per user, password reset, enable/disable |
 | **Audit log** | Who did what and when (incl. failed logins) |
 
@@ -135,7 +135,8 @@ Changes apply immediately; backend and frontend check the same rights (`server/l
 - TeamSpeak 3 server with ServerQuery enabled (raw 10011 or ssh 10022) and the `serveradmin` password – or let the wizard install one.
 - For start/stop, backups, logs and updates the web interface runs **on the same host** and **as the same user** as the TS3 server
   (or with a sudoers rule for systemd/Docker). ServerQuery-only operation (`none` control mode) works from any host.
-- `sqlite3` CLI for consistent database backups (installed by the installer; otherwise falls back to a file copy).
+- Consistent database backups need Node.js ≥ 22.16 (`node:sqlite`, no extra tool) **or** the `sqlite3` CLI (installed by the installer).
+  Without either, backups only work while the TS3 server is stopped (plain file copy).
 
 **Known limits of the installer** (manual installation still works):
 
@@ -247,9 +248,10 @@ sudo ts3web uninstall [--purge]    # remove (purge also deletes data, backups, .
 
 ## Backups
 
-- **ZIP backup**: `ts3server.sqlitedb` (via `sqlite3 .backup`, WAL-safe), `files/` (avatars, icons, uploads), `ts3server.ini`,
+- **ZIP backup**: `ts3server.sqlitedb` (consistent copy via `node:sqlite` or `sqlite3 .backup`, WAL-safe, integrity-checked), `files/` (avatars, icons, uploads), `ts3server.ini`,
   `licensekey.dat`, `query_ip_*.txt`, `ssh_host_rsa_key`, optionally `logs/` and a `backup-info.json`. MariaDB/PostgreSQL databases are **not** included (noted in the backup).
 - **Restore** (admins): safety copy → stop TS3 → restore files → start TS3. All clients are disconnected.
+- Backups, restores, updates, installation and serveradmin reset share one **maintenance lock**; a banner shows what is running.
 - **Snapshots**: `serversnapshotcreate/-deploy` via ServerQuery – channels, groups and permissions of the virtual server without a stop.
 - **Schedule**: daily or weekly at a given time (time zone configurable), retention by count; only automatic backups are rotated.
 
@@ -268,6 +270,7 @@ npm install
 cp .env.example .env         # HOST/PORT/JWT_SECRET; TeamSpeak settings via the wizard
 npm run dev                  # API on :8088, Vite dev server on :5173 (proxy → API)
 npm run typecheck            # TypeScript
+npm test                     # server tests (Vitest + Supertest)
 node scripts/i18n-check.mjs  # dictionary parity (de/en) and untranslated strings
 node scripts/build-release.mjs   # release package in release/
 ```

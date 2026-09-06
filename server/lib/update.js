@@ -12,6 +12,7 @@ import { ts3 } from './ts3.js';
 import { getProcessStatus, controlServer } from './process.js';
 import { createBackup } from './backup.js';
 import * as watchdog from './watchdog.js';
+import * as maintenance from './maintenance.js';
 import { notify } from './notify.js';
 import { audit } from './audit.js';
 import { ts } from './locale.js';
@@ -150,6 +151,15 @@ async function copyEntries(fromDir, toDir, entries, logPrefix) {
   if (logPrefix) log(ts('update.log.entries', { prefix: logPrefix, count: entries.length }));
 }
 
+/**
+ * Bewertet das Ergebnis nach dem Neustart: 'ok' nur, wenn der Server läuft, die Query verbunden ist
+ * und die gemeldete Version dem Ziel entspricht; sonst 'mismatch' (andere Version) oder 'unverified'.
+ */
+export function classifyVersion(seen, target) {
+  if (!seen) return 'unverified';
+  return String(seen) === String(target) ? 'ok' : 'mismatch';
+}
+
 async function waitForVersion(expected, timeoutMs = 90000) {
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
@@ -174,6 +184,7 @@ export async function runUpdate({ version, username = 'system' }) {
   if (!/^\d+(\.\d+)+$/.test(target)) throw new HttpError(400, 'update.badVersion');
   const url = target === state.latest && state.latestUrl ? state.latestUrl : RELEASE_URL(target);
   const checksum = target === state.latest ? state.checksum : null;
+  const lease = maintenance.acquire('ts3-update', { by: username, detail: target });
   state.running = { version: target, startedAt: new Date().toISOString(), steps: [], by: username };
   const tmp = await fsp.mkdtemp(path.join(os.tmpdir(), 'ts3update-'));
   let stopped = false;
@@ -200,7 +211,7 @@ export async function runUpdate({ version, username = 'system' }) {
     const newDir = path.join(extractDir, inner);
     log(ts('update.log.extracted'));
 
-    const backup = await createBackup({ label: `pre-update-${oldVersion}`, trigger: 'pre-update', username });
+    const backup = await createBackup({ label: `pre-update-${oldVersion}`, trigger: 'pre-update', username, parent: lease.token });
     log(ts('update.log.backupDone', { id: backup.id }));
 
     await watchdog.withHold(async () => {
@@ -227,11 +238,20 @@ export async function runUpdate({ version, username = 'system' }) {
     });
 
     const seen = await waitForVersion(target);
-    if (seen && seen !== target) log(ts('update.log.versionMismatch', { seen, target }));
-    else if (!seen) log(ts('update.log.versionUnconfirmed'));
+    const verdict = classifyVersion(seen, target);
+    if (verdict === 'mismatch') log(ts('update.log.versionMismatch', { seen, target }));
+    else if (verdict === 'unverified') log(ts('update.log.versionUnconfirmed'));
     else log(ts('update.log.runningVersion', { version: seen }));
-    state.current = seen || target;
-    state.lastResult = { ok: true, from: oldVersion, to: target, finishedAt: new Date().toISOString(), steps: state.running.steps };
+    state.current = seen || state.current;
+    if (verdict !== 'ok') {
+      // Erst nach erfolgreicher Prüfung als Erfolg melden – sonst bleibt das Ergebnis „ungeprüft“ mit Rollback-Angebot
+      log(ts('update.log.verifyFailed'));
+      state.lastResult = { ok: false, state: verdict, seen, from: oldVersion, to: target, error: ts(verdict === 'mismatch' ? 'update.log.versionMismatch' : 'update.log.versionUnconfirmed', { seen: seen || '?', target }), finishedAt: new Date().toISOString(), steps: state.running.steps };
+      audit(null, 'update.run', { by: username, from: oldVersion, to: target, state: verdict, seen }, false);
+      notify('updateUnverified', { from: oldVersion, to: target, seen: seen || '?', user: username, backup: backup.id });
+      return state.lastResult;
+    }
+    state.lastResult = { ok: true, state: 'ok', seen, from: oldVersion, to: target, finishedAt: new Date().toISOString(), steps: state.running.steps };
     audit(null, 'update.run', { by: username, from: oldVersion, to: target }, true);
     notify('updateDone', { from: oldVersion, to: target, user: username, backup: backup.id });
     return state.lastResult;
@@ -260,6 +280,7 @@ export async function runUpdate({ version, username = 'system' }) {
     throw e;
   } finally {
     state.running = null;
+    maintenance.release(lease);
     await fsp.rm(tmp, { recursive: true, force: true });
   }
 }
@@ -269,6 +290,7 @@ export async function rollback({ username = 'system' }) {
   const dir = ts3Dir();
   const prevVersion = await previousVersion();
   if (!prevVersion) throw new HttpError(404, 'update.noPrevious');
+  const lease = maintenance.acquire('ts3-rollback', { by: username, detail: prevVersion });
   state.running = { version: prevVersion, startedAt: new Date().toISOString(), steps: [], by: username, rollback: true };
   let stopped = false;
   try {
@@ -291,8 +313,19 @@ export async function rollback({ username = 'system' }) {
       log(ts('update.log.startedOk'));
     });
     const seen = await waitForVersion(prevVersion);
-    state.current = seen || prevVersion;
-    state.lastResult = { ok: true, rollback: true, to: prevVersion, finishedAt: new Date().toISOString(), steps: state.running.steps };
+    const verdict = classifyVersion(seen, prevVersion);
+    if (verdict === 'mismatch') log(ts('update.log.versionMismatch', { seen, target: prevVersion }));
+    else if (verdict === 'unverified') log(ts('update.log.versionUnconfirmed'));
+    else log(ts('update.log.runningVersion', { version: seen }));
+    state.current = seen || state.current;
+    if (verdict !== 'ok') {
+      log(ts('update.log.verifyFailed'));
+      state.lastResult = { ok: false, state: verdict, seen, rollback: true, to: prevVersion, error: ts(verdict === 'mismatch' ? 'update.log.versionMismatch' : 'update.log.versionUnconfirmed', { seen: seen || '?', target: prevVersion }), finishedAt: new Date().toISOString(), steps: state.running.steps };
+      audit(null, 'update.rollback', { by: username, to: prevVersion, state: verdict, seen }, false);
+      notify('updateUnverified', { from: state.current || '?', to: prevVersion, seen: seen || '?', user: username, backup: '-' });
+      return state.lastResult;
+    }
+    state.lastResult = { ok: true, state: 'ok', seen, rollback: true, to: prevVersion, finishedAt: new Date().toISOString(), steps: state.running.steps };
     audit(null, 'update.rollback', { by: username, to: prevVersion }, true);
     return state.lastResult;
   } catch (e) {
@@ -303,5 +336,6 @@ export async function rollback({ username = 'system' }) {
     throw e;
   } finally {
     state.running = null;
+    maintenance.release(lease);
   }
 }

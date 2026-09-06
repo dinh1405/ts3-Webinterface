@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
 import { createBrowserRouter, Navigate, RouterProvider, Outlet } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -11,25 +11,28 @@ import { FullPageSpinner } from './components/ui';
 import { ApiError } from './api/client';
 import { useTheme } from './lib/theme';
 import LoginPage from './pages/Login';
-import SetupWizardPage from './pages/setup/SetupWizard';
-import DashboardPage from './pages/Dashboard';
-import ClientsPage from './pages/Clients';
-import BansPage from './pages/Bans';
-import GroupsPage from './pages/Groups';
-import PermissionsPage, { PermissionOverviewPage } from './pages/Permissions';
-import SystemPage from './pages/System';
-import StatsPage from './pages/Stats';
-import ComplaintsPage from './pages/Complaints';
-import FilesPage from './pages/Files';
 import RegisterPage from './pages/Register';
-import LogsPage from './pages/Logs';
-import SettingsPage from './pages/Settings';
-import BackupsPage from './pages/Backups';
-import UsersPage from './pages/Users';
-import AuditPage from './pages/Audit';
-import AccountPage from './pages/Account';
-import HistoryPage from './pages/History';
-import ClientProfilePage from './pages/ClientProfile';
+
+// Seiten werden erst beim Aufruf geladen (eigene Chunks); Login, Registrierung und Layout bleiben im Hauptbündel.
+const SetupWizardPage = lazy(() => import('./pages/setup/SetupWizard'));
+const DashboardPage = lazy(() => import('./pages/Dashboard'));
+const ClientsPage = lazy(() => import('./pages/Clients'));
+const BansPage = lazy(() => import('./pages/Bans'));
+const GroupsPage = lazy(() => import('./pages/Groups'));
+const PermissionsPage = lazy(() => import('./pages/Permissions'));
+const PermissionOverviewPage = lazy(() => import('./pages/Permissions').then((m) => ({ default: m.PermissionOverviewPage })));
+const SystemPage = lazy(() => import('./pages/System'));
+const StatsPage = lazy(() => import('./pages/Stats'));
+const ComplaintsPage = lazy(() => import('./pages/Complaints'));
+const FilesPage = lazy(() => import('./pages/Files'));
+const LogsPage = lazy(() => import('./pages/Logs'));
+const SettingsPage = lazy(() => import('./pages/Settings'));
+const BackupsPage = lazy(() => import('./pages/Backups'));
+const UsersPage = lazy(() => import('./pages/Users'));
+const AuditPage = lazy(() => import('./pages/Audit'));
+const AccountPage = lazy(() => import('./pages/Account'));
+const HistoryPage = lazy(() => import('./pages/History'));
+const ClientProfilePage = lazy(() => import('./pages/ClientProfile'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -76,7 +79,7 @@ function PublicOnly({ children }: { children: React.ReactNode }) {
 
 const router = createBrowserRouter([
   { path: '/login', element: <PublicOnly><LoginPage /></PublicOnly> },
-  { path: '/setup', element: <SetupWizardPage /> },
+  { path: '/setup', element: <Suspense fallback={<FullPageSpinner />}><SetupWizardPage /></Suspense> },
   { path: '/register', element: <PublicOnly><RegisterPage /></PublicOnly> },
   {
     path: '/',

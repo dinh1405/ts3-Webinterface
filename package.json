@@ -1,19 +1,28 @@
 {
   "name": "ts3-webinterface",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "private": true,
   "description": "Web interface for managing a TeamSpeak 3 server (English/German)",
   "type": "module",
-  "workspaces": ["server", "web"],
-  "engines": { "node": ">=20.0.0" },
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "dev": "concurrently -n api,web -c blue,magenta \"npm run dev -w server\" \"npm run dev -w web\"",
     "build": "npm run build -w web",
     "start": "node server/index.js",
     "create-admin": "node server/scripts/create-admin.js",
-    "typecheck": "npm run typecheck -w web"
+    "typecheck": "npm run typecheck -w web",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "devDependencies": {
-    "concurrently": "^9.1.0"
+    "concurrently": "^9.1.0",
+    "supertest": "^7.2.2",
+    "vitest": "^4.1.11"
   }
 }

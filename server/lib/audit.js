@@ -20,10 +20,11 @@ export function audit(req, action, details = {}, ok = true) {
     details,
     ok,
   };
+  // Audit ist eine Nebenwirkung: ein Schreibfehler darf die eigentliche Aktion nicht scheitern lassen (wird geloggt)
   store.update((d) => {
     d.entries.unshift(entry);
     if (d.entries.length > MAX_ENTRIES) d.entries.length = MAX_ENTRIES;
-  });
+  }).catch((e) => console.error('[audit] entry lost:', e.message));
   return entry;
 }
 

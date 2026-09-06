@@ -13,8 +13,8 @@ import path from 'node:path';
 import { ROOT_DIR } from '../config.js';
 import { HttpError } from './errors.js';
 import { appVersion } from '../version.js';
-import { compareVersions, downloadFile, sha256File, runCmd, updateSummary as ts3UpdateSummary } from './update.js';
-import { backupState } from './backup.js';
+import { compareVersions, downloadFile, sha256File, runCmd } from './update.js';
+import * as maintenance from './maintenance.js';
 import { audit } from './audit.js';
 import { ts } from './locale.js';
 
@@ -152,9 +152,6 @@ export async function runSelfUpdate({ version, username = 'system', restart } = 
   const info = selfUpdateInfo();
   if (!info.canUpdate) throw new HttpError(400, `selfupdate.${info.reasons[0]}`);
   if (state.running) throw new HttpError(409, 'selfupdate.running');
-  if ((await ts3UpdateSummary()).running) throw new HttpError(409, 'update.running');
-  const b = backupState();
-  if (b.running || b.restoring) throw new HttpError(409, 'backup.running');
 
   await checkSelfUpdate(false);
   let release = state.latest;
@@ -168,6 +165,8 @@ export async function runSelfUpdate({ version, username = 'system', restart } = 
   if (compareVersions(release.version, info.current) === 0) throw new HttpError(400, 'selfupdate.sameVersion', { version: release.version });
   const doRestart = restart ?? info.restartMode === 'systemd';
 
+  // Sperre bleibt bei erfolgreichem Update mit Neustart bis zum Prozessende gehalten
+  const lease = maintenance.acquire('self-update', { by: username, detail: release.version });
   state.running = { version: release.version, from: info.current, startedAt: new Date().toISOString(), steps: [], by: username, restart: doRestart };
   let swapped = false;
   let movedOut = [];
@@ -249,6 +248,9 @@ export async function runSelfUpdate({ version, username = 'system', restart } = 
     audit({ user: { username } }, 'selfupdate.run', { from: info.current, to: release.version, error: e.message }, false);
     throw e;
   } finally {
-    if (!(state.lastResult?.ok && state.lastResult?.restart)) state.running = null;
+    if (!(state.lastResult?.ok && state.lastResult?.restart)) {
+      state.running = null;
+      maintenance.release(lease);
+    }
   }
 }

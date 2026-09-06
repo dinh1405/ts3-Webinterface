@@ -1,5 +1,6 @@
 import { clsx } from 'clsx';
-import { useEffect, useState, type ButtonHTMLAttributes, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { AlertTriangle, Inbox, RefreshCw, X, type LucideIcon } from 'lucide-react';
 import { ApiError, errorMessage } from '../api/client';
 import { t, useT } from '../i18n';
@@ -133,29 +134,90 @@ export function Toggle({ checked, onChange, label, disabled, description }: { ch
 }
 
 /* ---------- Modal ---------- */
-export function Modal({ open, onClose, title, children, footer, size = 'md' }: { open: boolean; onClose: () => void; title?: ReactNode; children: ReactNode; footer?: ReactNode; size?: 'sm' | 'md' | 'lg' | 'xl' }) {
+/** Offene Dialoge (IDs) – der oberste reagiert auf Escape; der Seiteninhalt (#root) ist solange inert. */
+const modalStack: string[] = [];
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+function focusables(root: HTMLElement): HTMLElement[] {
+  return [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((el) => el.offsetParent !== null || el === document.activeElement);
+}
+function setBackgroundInert(inert: boolean) {
+  const root = document.getElementById('root');
+  if (!root) return;
+  root.inert = inert;
+  if (inert) root.setAttribute('aria-hidden', 'true'); else root.removeAttribute('aria-hidden');
+}
+
+/**
+ * Dialog mit Tastaturbedienung: Fokus wandert beim Öffnen hinein (autofocus-Element, sonst erstes Feld, sonst der Dialog),
+ * Tab/Shift+Tab bleiben im Dialog, Escape schließt den obersten Dialog, beim Schließen kehrt der Fokus zum Auslöser zurück.
+ * Gerendert als Portal in <body>, damit der Seiteninhalt per `inert` für Tastatur und Screenreader ausgeblendet werden kann.
+ */
+export function Modal({ open, onClose, title, children, footer, size = 'md', describedBy }: { open: boolean; onClose: () => void; title?: ReactNode; children: ReactNode; footer?: ReactNode; size?: 'sm' | 'md' | 'lg' | 'xl'; describedBy?: string }) {
+  const id = useId();
+  const titleId = `${id}-title`;
+  const panelRef = useRef<HTMLDivElement>(null);
+  const restoreRef = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const wasOpen = useRef(false);
+  // Auslöser beim Öffnen merken – noch während des Renderns, denn `autoFocus`-Elemente im Dialog ziehen den Fokus
+  // bereits beim Commit (vor den Effekten) auf sich.
+  if (open && !wasOpen.current) restoreRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  wasOpen.current = open;
+
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
+    modalStack.push(id);
+    setBackgroundInert(true);
     document.body.style.overflow = 'hidden';
-    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = ''; };
-  }, [open, onClose]);
+    const raf = requestAnimationFrame(() => {
+      const panel = panelRef.current;
+      if (!panel || panel.contains(document.activeElement)) return;
+      const preferred = panel.querySelector<HTMLElement>('[autofocus]') ?? focusables(panel).find((el) => !el.hasAttribute('data-modal-close'));
+      (preferred ?? panel).focus();
+    });
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || modalStack[modalStack.length - 1] !== id) return;
+      e.stopPropagation();
+      onCloseRef.current();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('keydown', onKey);
+      modalStack.splice(modalStack.indexOf(id), 1);
+      if (modalStack.length === 0) { setBackgroundInert(false); document.body.style.overflow = ''; }
+      const back = restoreRef.current;
+      if (back && back.isConnected) back.focus();
+    };
+  }, [open, id]);
+
   if (!open) return null;
   const width = { sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl' }[size];
-  return (
+  const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'Tab' || !panelRef.current) return;
+    const items = focusables(panelRef.current);
+    if (items.length === 0) { e.preventDefault(); panelRef.current.focus(); return; }
+    const first = items[0];
+    const last = items[items.length - 1];
+    const active = document.activeElement;
+    if (e.shiftKey && (active === first || active === panelRef.current)) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && active === last) { e.preventDefault(); first.focus(); }
+  };
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className={clsx('card w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl shadow-black/50', width)} role="dialog" aria-modal>
+      <div ref={panelRef} tabIndex={-1} onKeyDown={onKeyDown} className={clsx('card w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl shadow-black/50 outline-none', width)} role="dialog" aria-modal="true" aria-labelledby={title ? titleId : undefined} aria-describedby={describedBy}>
         {title && (
           <header className="card-header">
-            <h2 className="card-title">{title}</h2>
-            <button className="btn btn-ghost btn-icon" onClick={onClose} aria-label={t('common.close')}><X className="h-4 w-4" /></button>
+            <h2 className="card-title" id={titleId}>{title}</h2>
+            <button className="btn btn-ghost btn-icon" onClick={onClose} aria-label={t('common.close')} data-modal-close><X className="h-4 w-4" /></button>
           </header>
         )}
         <div className="card-body overflow-y-auto">{children}</div>
         {footer && <footer className="flex flex-wrap items-center justify-end gap-2 border-t border-slate-800 px-5 py-3">{footer}</footer>}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -164,17 +226,18 @@ export function ConfirmDialog({ open, onClose, onConfirm, title, message, confir
   open: boolean; onClose: () => void; onConfirm: () => void; title: ReactNode; message?: ReactNode; confirmLabel?: string; tone?: Variant; loading?: boolean; requireText?: string; children?: ReactNode;
 }) {
   const { t } = useT();
+  const descId = useId();
   const [text, setText] = useState('');
   useEffect(() => { if (!open) setText(''); }, [open]);
   const blocked = Boolean(requireText) && text !== requireText;
   return (
-    <Modal open={open} onClose={onClose} title={title} size="sm"
+    <Modal open={open} onClose={onClose} title={title} size="sm" describedBy={message ? descId : undefined}
       footer={<>
         <Button variant="ghost" onClick={onClose} disabled={loading}>{t('common.cancel')}</Button>
-        <Button variant={tone} onClick={onConfirm} loading={loading} disabled={blocked}>{confirmLabel ?? t('common.confirm')}</Button>
+        <Button variant={tone} onClick={onConfirm} loading={loading} disabled={blocked} autoFocus={!requireText}>{confirmLabel ?? t('common.confirm')}</Button>
       </>}
     >
-      {message && <div className="text-sm text-slate-300">{message}</div>}
+      {message && <div className="text-sm text-slate-300" id={descId}>{message}</div>}
       {children}
       {requireText && (
         <div className="mt-4">

@@ -89,7 +89,10 @@ export default function BackupsPage() {
                         <td className="whitespace-nowrap"><span title={formatDate(b.createdAt, true)}>{formatDate(b.createdAt)}</span><p className="text-xs text-slate-500">{b.createdBy}</p></td>
                         <td><Badge tone={TRIGGER_TONE[b.trigger] || 'slate'}>{triggerLabel(b.trigger)}</Badge></td>
                         <td className="whitespace-nowrap">{formatBytes(b.size)}</td>
-                        <td className="text-xs text-slate-400">{b.contents.length ? b.contents.join(', ') : '–'}{b.notes.length > 0 && <span className="ml-1 text-amber-400" title={b.notes.join('\n')}>⚠</span>}</td>
+                        <td className="text-xs text-slate-400">
+                          {b.contents.length ? b.contents.join(', ') : '–'}{b.notes.length > 0 && <span className="ml-1 text-amber-400" title={b.notes.join('\n')}>⚠</span>}
+                          {b.dbIntegrity && <span className="ml-2 inline-block align-middle"><Badge tone={b.dbIntegrity === 'ok' ? 'green' : b.dbIntegrity === 'failed' ? 'red' : 'slate'}>{t(`backups.integrity.${b.dbIntegrity}`)}</Badge></span>}
+                        </td>
                         <td>
                           <div className="flex justify-end gap-1">
                             <Button size="sm" variant="ghost" icon={Info} onClick={() => setDetail(b)} />
@@ -122,7 +125,7 @@ export default function BackupsPage() {
       <Modal open={Boolean(detail)} onClose={() => setDetail(null)} title={t('backups.details')} size="md">
         {detail && (
           <dl className="space-y-2 text-sm">
-            {[['ID', detail.id], [t('bans.th.created'), formatDate(detail.createdAt, true)], [t('bans.th.by'), detail.createdBy || '–'], [t('backups.th.kind'), triggerLabel(detail.trigger)], [t('files.th.size'), formatBytes(detail.size)], [t('bans.th.duration'), formatDurationMs(detail.durationMs)], [t('backups.dbMethod'), detail.dbMethod || '–'], [t('backups.ts3Version'), detail.ts3Version || '–'], [t('backups.th.contents'), detail.contents.join(', ') || '–']].map(([k, v]) => (
+            {[['ID', detail.id], [t('bans.th.created'), formatDate(detail.createdAt, true)], [t('bans.th.by'), detail.createdBy || '–'], [t('backups.th.kind'), triggerLabel(detail.trigger)], [t('files.th.size'), formatBytes(detail.size)], [t('bans.th.duration'), formatDurationMs(detail.durationMs)], [t('backups.dbMethod'), detail.dbMethod || '–'], [t('backups.integrity'), detail.dbIntegrity ? t(`backups.integrity.${detail.dbIntegrity}`) : '–'], [t('backups.ts3Version'), detail.ts3Version || '–'], [t('backups.th.contents'), detail.contents.join(', ') || '–']].map(([k, v]) => (
               <div key={k} className="flex justify-between gap-4 border-b border-slate-800/60 py-1"><dt className="text-slate-400">{k}</dt><dd className="text-right font-mono text-xs text-slate-200 break-all">{v}</dd></div>
             ))}
             {detail.notes.length > 0 && <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">{detail.notes.map((n, i) => <p key={i}>{n}</p>)}</div>}

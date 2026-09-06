@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { z } from 'zod';
 import { t, hasKey } from '../i18n/index.js';
 import { resolveLocale } from './locale.js';
@@ -91,6 +92,11 @@ export function errorMiddleware(err, req, res, next) {
   }
   if (err?.type === 'entity.parse.failed') {
     return res.status(400).json({ error: t(locale, 'errors.badJson'), key: 'errors.badJson' });
+  }
+  if (err?.code === 'STORE_WRITE') {
+    // Schreibfehler des JSON-Speichers (lib/store.js): Änderung wurde verworfen
+    console.error('[error]', err.message);
+    return res.status(500).json({ error: t(locale, 'errors.storeWrite', { file: path.basename(err.file || '') }), key: 'errors.storeWrite', detail: err.cause?.message });
   }
   console.error('[error]', err);
   res.status(500).json({ error: t(locale, 'errors.internal'), key: 'errors.internal', detail: err?.message });

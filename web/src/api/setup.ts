@@ -51,7 +51,7 @@ export interface QueryTest {
 export interface BackupDirTest { path: string; exists: boolean; created: boolean; writable: boolean; disk: { free: number; total: number } | null; owner: Owner | null }
 export interface SystemCheck {
   platform: string; os: { name: string; id?: string; like?: string }; node: { version: string; ok: boolean }; user: SetupState['me']; isRoot: boolean;
-  tools: Record<string, string | null>; sudo: { available: boolean; rules: string[]; error?: string };
+  tools: Record<string, string | null>; sudo: { available: boolean; rules: string[]; error?: string }; sqliteBackup?: { nodeSqlite: boolean; sqlite3: boolean };
   dirs: Record<string, { path: string; exists: boolean; writable: boolean; owner: Owner | null; disk: { free: number; total: number } | null } | null>;
   plesk: boolean; configFile: { path: string; exists: boolean }; rootDir: string;
 }

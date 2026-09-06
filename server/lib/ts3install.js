@@ -19,6 +19,7 @@ import { fetchLatestRelease, downloadFile, sha256File, runCmd, RELEASE_URL } fro
 import { ts3, probeQuery } from './ts3.js';
 import { runCommand, pidAlive } from './process.js';
 import * as watchdog from './watchdog.js';
+import * as maintenance from './maintenance.js';
 import { audit } from './audit.js';
 import { currentUser } from './setup.js';
 
@@ -238,6 +239,7 @@ export async function startInstall({ dir, version, acceptLicense, voicePort = 99
   const pidFile = path.join(target, 'ts3server.pid');
   const me = currentUser();
 
+  const lease = maintenance.acquire('ts3-install', { by: username, detail: target });
   job = { id: crypto.randomUUID(), startedAt: new Date().toISOString(), done: false, ok: null, steps: [], result: null, dir: target };
   const current = job;
   const step = (key, detail = '') => current.steps.push({ ts: new Date().toISOString(), key, detail });
@@ -334,6 +336,7 @@ export async function startInstall({ dir, version, acceptLicense, voicePort = 99
     } finally {
       current.done = true;
       current.finishedAt = new Date().toISOString();
+      maintenance.release(lease);
       watchdog.release();
       await fsp.rm(tmp, { recursive: true, force: true }).catch(() => {});
     }

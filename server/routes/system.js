@@ -9,9 +9,17 @@ import { resolveLocale } from '../lib/locale.js';
 import { checkForUpdate, runUpdate, rollback, updateSummary } from '../lib/update.js';
 import { checkSelfUpdate, runSelfUpdate, selfUpdateSummary } from '../lib/selfupdate.js';
 import { audit } from '../lib/audit.js';
+import { requireAuth } from '../lib/auth.js';
+import * as maintenance from '../lib/maintenance.js';
 
 const router = Router();
 const MASK = '***';
+
+/* ---------------- Wartungssperre ---------------- */
+/** Für alle angemeldeten Benutzer sichtbar (Banner im Layout), damit klar ist, warum Aktionen gesperrt sind. */
+router.get('/maintenance', requireAuth, (req, res) => {
+  res.json(maintenance.status());
+});
 
 /* ---------------- Watchdog ---------------- */
 router.get('/watchdog', requireCap('system.view'), (req, res) => {

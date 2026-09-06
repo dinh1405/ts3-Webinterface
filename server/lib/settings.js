@@ -34,6 +34,7 @@ export const DEFAULT_SETTINGS = {
       backupFailed: true,
       backupDone: false,
       updateDone: true,
+      updateUnverified: true,
       updateFailed: true,
       clientBanned: true,
       clientKicked: false,

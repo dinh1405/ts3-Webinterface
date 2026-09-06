@@ -18,6 +18,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck
+      - run: npm test
       - run: node scripts/i18n-check.mjs
       - name: Build release package
         run: node scripts/build-release.mjs --version "${GITHUB_REF_NAME#v}"

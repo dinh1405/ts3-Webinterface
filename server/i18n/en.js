@@ -339,4 +339,14 @@ export default {
   'selfupdate.log.installed': 'Version {version} in place, previous version kept in {dir}',
   'selfupdate.log.restarting': 'Restarting in 2 seconds – systemd starts the service with the new version',
   'selfupdate.log.restartManually': 'Done. Please restart the service manually (no systemd detected).',
+  // 1.3.1: reliability
+  'errors.storeWrite': 'The change could not be saved ({file}) – the data directory is not writable or the disk is full. The change was discarded.',
+  'backup.dbInconsistent': 'No consistent database backup possible: neither node:sqlite (Node ≥ 22.16) nor sqlite3 is available ({errors}) and the TeamSpeak server is running. Install sqlite3 or stop the server for the backup.',
+  'backup.note.integrityFailed': 'Integrity check of the database copy failed: {detail}',
+  'maintenance.busy': 'Another maintenance action is already running ({kind}, started by {by} at {since}). Please wait until it has finished.',
+  'maintenance.parentMismatch': 'Internal error: nested maintenance action {kind} without a valid outer operation',
+  'update.log.verifyFailed': 'Verification failed – the update only counts as successful once the version is confirmed. Check the server or restore the previous version.',
+  'notifyEvent.updateUnverified': 'TS3 update not confirmed',
+  'notify.updateUnverified.title': 'TS3 update to {to} not confirmed',
+  'notify.updateUnverified.body': 'The TeamSpeak server was updated from {from} to {to} (triggered by {user}) but reports version "{seen}" or no connection afterwards. Please check; the previous version can be restored in the webinterface. Backup: {backup}',
 };

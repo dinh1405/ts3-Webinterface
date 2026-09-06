@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { clsx } from 'clsx';
-import { ChevronLeft, ChevronRight, Clock, History, Search, StickyNote, UserPlus, Users } from 'lucide-react';
-import { api } from '../api/client';
-import type { HistoryIdentitySummary, HistorySummary } from '../api/types';
+import { ChevronLeft, ChevronRight, Clock, Eraser, History, Search, StickyNote, UserPlus, Users } from 'lucide-react';
+import { api, errorMessage } from '../api/client';
+import type { HistoryCleanupResult, HistoryIdentitySummary, HistorySummary } from '../api/types';
+import { useAuth } from '../lib/auth';
 import { countryFlag, formatDate, formatDuration, formatRelative } from '../lib/format';
 import { useT } from '../i18n';
 import { Badge, Button, Card, EmptyState, ErrorBox, FullPageSpinner, PageHeader, Stat } from '../components/ui';
@@ -26,6 +28,13 @@ export default function HistoryPage() {
   if (q.trim()) params.set('q', q.trim());
   const list = useQuery({ queryKey: ['history', 'list', params.toString()], queryFn: () => api.get<{ total: number; entries: HistoryIdentitySummary[] }>(`/api/history?${params}`), refetchInterval: 30000, placeholderData: (prev) => prev });
   const summary = useQuery({ queryKey: ['history', 'summary'], queryFn: () => api.get<HistorySummary>('/api/history/summary'), refetchInterval: 60000 });
+  const { can } = useAuth();
+  const qc = useQueryClient();
+  const cleanup = useMutation({
+    mutationFn: () => api.post<{ ok: boolean; result: HistoryCleanupResult }>('/api/history/cleanup'),
+    onSuccess: (d) => { toast.success(t('history.cleanupDone', { rows: d.result.removedRows, deleted: d.result.deletedIdentities, pruned: d.result.prunedIdentities })); qc.invalidateQueries({ queryKey: ['history'] }); },
+    onError: (e) => toast.error(errorMessage(e)),
+  });
 
   const s = summary.data;
 
@@ -125,7 +134,12 @@ export default function HistoryPage() {
               })}
             </ol>
           ))}
-          {s && <p className="border-t border-slate-800 px-5 py-2 text-[11px] text-slate-500">{t('history.retention', { days: s.retentionDays })}</p>}
+          {s && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-slate-800 px-5 py-2 text-[11px] text-slate-500">
+              <p className="flex-1">{t('history.retentionDetail', { days: s.retentionDays })}{s.lastCleanup && <> {t('history.lastCleanup', { when: formatRelative(s.lastCleanup.at) })}</>}</p>
+              {can('history.manage') && <Button size="sm" variant="ghost" icon={Eraser} loading={cleanup.isPending} onClick={() => cleanup.mutate()}>{t('history.cleanupNow')}</Button>}
+            </div>
+          )}
         </Card>
       </div>
     </div>

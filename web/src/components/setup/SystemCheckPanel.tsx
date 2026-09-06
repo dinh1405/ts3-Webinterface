@@ -21,7 +21,7 @@ export function SystemCheckPanel() {
             <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-500">{t('wizard.syscheck.tools')}</p>
             <ul>
               <CheckLine ok={d.node.ok} label={`Node.js ${d.node.version}`} detail={d.node.ok ? undefined : t('wizard.syscheck.nodeOld')} />
-              <CheckLine ok={Boolean(d.tools.sqlite3)} warn label="sqlite3" detail={d.tools.sqlite3 || t('wizard.syscheck.sqliteMissing')} />
+              <CheckLine ok={Boolean(d.sqliteBackup?.nodeSqlite || d.sqliteBackup?.sqlite3)} warn label={t('wizard.syscheck.sqliteBackup')} detail={d.sqliteBackup?.nodeSqlite ? t('wizard.syscheck.sqliteVia', { method: 'node:sqlite' }) : d.sqliteBackup?.sqlite3 ? t('wizard.syscheck.sqliteVia', { method: 'sqlite3' }) : t('wizard.syscheck.sqliteNone')} />
               <CheckLine ok={Boolean(d.tools.tar) && Boolean(d.tools.bzip2)} warn label="tar + bzip2" detail={d.tools.tar && d.tools.bzip2 ? undefined : t('wizard.syscheck.tarMissing')} />
               <CheckLine ok={Boolean(d.tools.sendmail)} warn label="sendmail" detail={d.tools.sendmail || t('wizard.syscheck.sendmailMissing')} />
               <CheckLine ok={Boolean(d.tools.systemctl)} warn label="systemctl" detail={d.tools.systemctl || '–'} />

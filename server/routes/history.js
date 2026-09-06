@@ -4,7 +4,7 @@ import { asyncHandler, HttpError, listOrEmpty } from '../lib/errors.js';
 import { requireCap } from '../lib/auth.js';
 import { ts3, serializeClient } from '../lib/ts3.js';
 import { audit, listAudit } from '../lib/audit.js';
-import { addNote, deleteIdentity, deleteNote, getProfile, historySummary, listIdentities, findIdentityByCldbid } from '../lib/history.js';
+import { addNote, deleteIdentity, deleteNote, getProfile, historySummary, listIdentities, findIdentityByCldbid, saveNow, cleanup } from '../lib/history.js';
 
 const router = Router();
 
@@ -27,6 +27,13 @@ router.get('/', requireCap('history.view'), asyncHandler(async (req, res) => {
 
 router.get('/summary', requireCap('history.view'), asyncHandler(async (req, res) => {
   res.json(await historySummary());
+}));
+
+/** Aufbewahrungsfrist sofort durchsetzen (läuft sonst beim Start und alle 12 Stunden). */
+router.post('/cleanup', requireCap('history.manage'), asyncHandler(async (req, res) => {
+  const result = await cleanup({ trigger: 'manual' });
+  audit(req, 'history.cleanup', { removedRows: result.removedRows, removedFiles: result.removedFiles, deletedIdentities: result.deletedIdentities, prunedIdentities: result.prunedIdentities });
+  res.json({ ok: true, result });
 }));
 
 /** Profil über die Datenbank-ID auflösen (z. B. aus Beschwerden). */
@@ -130,6 +137,7 @@ router.post('/:uid/notes', requireCap('history.manage'), asyncHandler(async (req
   const { text } = z.object({ text: z.string().trim().min(1).max(2000) }).parse(req.body);
   const note = addNote(uid, { text, author: req.user.username });
   if (!note) throw new HttpError(404, 'history.identityNotFound');
+  await saveNow();
   audit(req, 'history.note.add', { uid, text: text.slice(0, 200) });
   res.json({ ok: true, note });
 }));
@@ -138,6 +146,7 @@ router.delete('/:uid/notes/:noteId', requireCap('history.manage'), asyncHandler(
   const uid = uidParam(req.params.uid);
   const { noteId } = z.object({ noteId: z.string().uuid() }).parse(req.params);
   if (!deleteNote(uid, noteId)) throw new HttpError(404, 'history.noteNotFound');
+  await saveNow();
   audit(req, 'history.note.delete', { uid, noteId });
   res.json({ ok: true });
 }));

@@ -1,17 +1,18 @@
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { clsx } from 'clsx';
 import {
-  Activity, Archive, Ban, BarChart3, ClipboardList, Cpu, Flag, FolderOpen, History, KeyRound, LayoutDashboard, LogOut, Menu, Monitor, Moon, ScrollText, Settings, Shield, Sun, Users, UserCog, X, Headphones,
+  Activity, Archive, Ban, BarChart3, ClipboardList, Cpu, Flag, FolderOpen, History, KeyRound, LayoutDashboard, LogOut, Menu, Monitor, Moon, ScrollText, Settings, Shield, Sun, Users, UserCog, Wrench, X, Headphones,
 } from 'lucide-react';
 import { api } from '../api/client';
-import type { ServerStatus } from '../api/types';
+import type { MaintenanceStatus, ServerStatus } from '../api/types';
 import { useAuth } from '../lib/auth';
 import { useEvents } from '../lib/events';
 import { useTheme, type ThemePref } from '../lib/theme';
 import { useT } from '../i18n';
-import { Badge } from './ui';
+import { Badge, FullPageSpinner } from './ui';
+import { formatTime } from '../lib/format';
 
 function ThemeSwitch() {
   const { pref, setPref } = useTheme();
@@ -46,6 +47,13 @@ export function Layout() {
     queryFn: () => api.get<ServerStatus>('/api/server/status'),
     refetchInterval: 10000,
   });
+
+  const maintenance = useQuery({
+    queryKey: ['maintenance'],
+    queryFn: () => api.get<MaintenanceStatus>('/api/system/maintenance'),
+    refetchInterval: (query) => (query.state.data?.active ? 5000 : 15000),
+  });
+  const mt = maintenance.data?.active ?? null;
 
   useEffect(() => { setOpen(false); }, [location.pathname]);
 
@@ -161,10 +169,18 @@ export function Layout() {
           <span className="text-sm font-semibold">{t('layout.appName')}</span>
           <span className="ml-auto flex items-center gap-2 text-xs text-slate-400"><Activity className={clsx('h-3.5 w-3.5', queryConnected ? 'text-emerald-400' : 'text-amber-400')} />{queryConnected ? t('layout.connected') : t('layout.disconnected')}</span>
         </header>
+        {mt && (
+          <div className="flex items-center gap-2 border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 text-xs text-amber-200 sm:px-6 lg:px-8" role="status">
+            <Wrench className="h-3.5 w-3.5 shrink-0" />
+            <span>{t('maintenance.banner', { kind: td(`maintenance.kind.${mt.kind}`, undefined, mt.kind), by: mt.by, since: formatTime(mt.startedAt, false) })}</span>
+          </div>
+        )}
         <main className="flex-1 overflow-y-auto">
           <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
             {/* Seiteninhalt bei Sprachwechsel neu aufbauen, damit auch memoisierte Formatierungen aktualisiert werden */}
-            <Outlet key={locale} />
+            <Suspense fallback={<FullPageSpinner />}>
+              <Outlet key={locale} />
+            </Suspense>
           </div>
         </main>
       </div>

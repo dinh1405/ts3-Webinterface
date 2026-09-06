@@ -10,6 +10,7 @@ import { HttpError } from './errors.js';
 import { controlServer, getProcessStatus } from './process.js';
 import { ts3 } from './ts3.js';
 import * as watchdog from './watchdog.js';
+import * as maintenance from './maintenance.js';
 import { ts, systemLocale } from './locale.js';
 
 const CONFIG_FILES = [
@@ -75,35 +76,155 @@ function execSimple(cmd, args, timeoutMs = 120000) {
   });
 }
 
-/** Konsistente Kopie der SQLite-Datenbank (WAL-sicher) – Fallback: Dateikopie. */
-async function copySqlite(dest, notes) {
+/* ---------------- SQLite ---------------- */
+
+let nodeSqlite; // Modul, false = nicht verfügbar (Node < 22.16)
+async function loadNodeSqlite() {
+  if (nodeSqlite !== undefined) return nodeSqlite;
+  try {
+    const m = await import('node:sqlite');
+    nodeSqlite = typeof m.backup === 'function' && typeof m.DatabaseSync === 'function' ? m : false;
+  } catch {
+    nodeSqlite = false;
+  }
+  return nodeSqlite;
+}
+
+/** Welche Sicherungsmethoden stehen zur Verfügung? (für Systemcheck und Tests) */
+export async function sqliteBackupMethods() {
+  const out = { nodeSqlite: Boolean(await loadNodeSqlite()), sqlite3: false };
+  try {
+    await execSimple(config.ts3.sqlite3Bin, ['-version'], 5000);
+    out.sqlite3 = true;
+  } catch { /* nicht installiert */ }
+  return out;
+}
+
+async function backupWithNodeSqlite(db, dest) {
+  const m = await loadNodeSqlite();
+  if (!m) throw new Error('node:sqlite not available');
+  const src = new m.DatabaseSync(db, { readOnly: true });
+  try {
+    await m.backup(src, dest);
+  } finally {
+    src.close();
+  }
+}
+
+/** WAL der Kopie in die Hauptdatei überführen und leere -wal/-shm-Reste entfernen (Kopie = eine Datei). */
+async function tidyWal(dest) {
+  const m = await loadNodeSqlite();
+  if (m) {
+    try {
+      const db = new m.DatabaseSync(dest);
+      try { db.exec('PRAGMA wal_checkpoint(TRUNCATE)'); } finally { db.close(); }
+    } catch { /* Kopie bleibt wie sie ist */ }
+  }
+  for (const suffix of ['-wal', '-shm']) {
+    const p = dest + suffix;
+    try {
+      if ((await fsp.stat(p)).size === 0) await fsp.rm(p, { force: true });
+    } catch { /* nicht vorhanden */ }
+  }
+}
+
+/** PRAGMA integrity_check auf der Kopie: 'ok' | 'failed' | 'unchecked'. */
+async function checkIntegrity(file, notes) {
+  const m = await loadNodeSqlite();
+  try {
+    if (m) {
+      const db = new m.DatabaseSync(file, { readOnly: true });
+      try {
+        const row = db.prepare('PRAGMA integrity_check').get();
+        const result = String(row?.integrity_check ?? Object.values(row || {})[0] ?? '');
+        if (result === 'ok') return 'ok';
+        notes.push(ts('backup.note.integrityFailed', { detail: result.slice(0, 200) }));
+        return 'failed';
+      } finally {
+        db.close();
+      }
+    }
+    const out = await execCapture(config.ts3.sqlite3Bin, [file, 'PRAGMA integrity_check;'], 120000);
+    if (out.trim() === 'ok') return 'ok';
+    notes.push(ts('backup.note.integrityFailed', { detail: out.trim().slice(0, 200) }));
+    return 'failed';
+  } catch {
+    return 'unchecked';
+  }
+}
+
+function execCapture(cmd, args, timeoutMs = 120000) {
+  return new Promise((resolve, reject) => {
+    let stdout = '';
+    let stderr = '';
+    const child = spawn(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    const timer = setTimeout(() => { child.kill('SIGKILL'); reject(new Error('timeout')); }, timeoutMs);
+    child.stdout.on('data', (d) => { stdout += d; });
+    child.stderr.on('data', (d) => { stderr += d; });
+    child.on('error', (e) => { clearTimeout(timer); reject(e); });
+    child.on('exit', (code) => { clearTimeout(timer); if (code === 0) resolve(stdout); else reject(new Error(stderr.trim() || `Exit-Code ${code}`)); });
+  });
+}
+
+export const DB_METHODS = ['node-sqlite', 'sqlite3', 'file-copy'];
+
+/**
+ * Konsistente Kopie der SQLite-Datenbank. Reihenfolge:
+ *   1. node:sqlite Backup-API (Node ≥ 22.16, WAL-sicher, ohne Zusatzprogramm)
+ *   2. sqlite3 .backup (CLI)
+ *   3. Dateikopie – nur wenn der TS3-Prozess nachweislich nicht läuft; bei laufendem Server wäre die
+ *      Kopie von db/-wal/-shm nacheinander nicht konsistent → Backup schlägt kontrolliert fehl.
+ */
+async function copySqlite(dest, notes, methods = DB_METHODS) {
   const db = config.ts3.dbFile;
   if (!db || !fs.existsSync(db)) {
     notes.push(ts('backup.note.noSqlite'));
     return 'none';
   }
-  try {
-    await execSimple(config.ts3.sqlite3Bin, [db, `.backup "${dest.replace(/\\/g, '/')}"`]);
-    const st = await fsp.stat(dest);
-    if (st.size === 0) throw new Error('leere Kopie');
-    return 'sqlite3-backup';
-  } catch (e) {
-    notes.push(ts('backup.note.sqliteFallback', { error: e.message }));
+  const errors = [];
+  if (methods.includes('node-sqlite')) {
+    try {
+      await backupWithNodeSqlite(db, dest);
+      const st = await fsp.stat(dest);
+      if (st.size === 0) throw new Error('empty copy');
+      return 'node-sqlite';
+    } catch (e) {
+      errors.push(`node:sqlite: ${e.message}`);
+      await fsp.rm(dest, { force: true });
+    }
+  }
+  if (methods.includes('sqlite3')) {
+    try {
+      await execSimple(config.ts3.sqlite3Bin, [db, `.backup "${dest.replace(/\\/g, '/')}"`]);
+      const st = await fsp.stat(dest);
+      if (st.size === 0) throw new Error('empty copy');
+      return 'sqlite3-backup';
+    } catch (e) {
+      errors.push(`sqlite3: ${e.message}`);
+      await fsp.rm(dest, { force: true });
+    }
+  }
+  if (methods.includes('file-copy')) {
+    const status = await getProcessStatus();
+    if (status.running !== false) throw new HttpError(500, 'backup.dbInconsistent', { errors: errors.join('; ') || '-' });
+    notes.push(ts('backup.note.sqliteFallback', { error: errors.join('; ') || '-' }));
     await fsp.copyFile(db, dest);
     for (const suffix of ['-wal', '-shm']) {
       if (fs.existsSync(db + suffix)) await fsp.copyFile(db + suffix, dest + suffix);
     }
     return 'file-copy';
   }
+  throw new HttpError(500, 'backup.dbInconsistent', { errors: errors.join('; ') || '-' });
 }
 
 /**
  * Erstellt ein ZIP-Backup des TS3-Servers.
  */
-export async function createBackup({ includeLogs = false, label = '', trigger = 'manual', username = 'system' } = {}) {
+export async function createBackup({ includeLogs = false, label = '', trigger = 'manual', username = 'system', parent = null, dbMethods = DB_METHODS } = {}) {
   if (running) throw new HttpError(409, 'backup.running');
   const dir = ts3Dir();
   const out = backupDir();
+  const lease = maintenance.acquire('backup', { by: username, detail: trigger, parent });
   const labelSlug = slug(label);
   const id = `ts3-backup_${stamp()}${trigger === 'schedule' ? '_auto' : ''}${labelSlug ? `_${labelSlug}` : ''}`;
   const zipPath = path.join(out, `${id}.zip`);
@@ -115,7 +236,9 @@ export async function createBackup({ includeLogs = false, label = '', trigger = 
   const tmp = await fsp.mkdtemp(path.join(os.tmpdir(), 'ts3bak-'));
   try {
     const dbCopy = path.join(tmp, 'ts3server.sqlitedb');
-    const dbMethod = await copySqlite(dbCopy, notes);
+    const dbMethod = await copySqlite(dbCopy, notes, dbMethods);
+    const dbIntegrity = dbMethod === 'none' ? null : await checkIntegrity(dbCopy, notes);
+    if (dbMethod === 'node-sqlite' || dbMethod === 'sqlite3-backup') await tidyWal(dbCopy);
     const info = {
       id,
       createdAt: new Date().toISOString(),
@@ -124,6 +247,7 @@ export async function createBackup({ includeLogs = false, label = '', trigger = 
       label: String(label || '').slice(0, 80),
       includeLogs,
       dbMethod,
+      dbIntegrity,
       ts3Dir: dir,
       ts3Version: null,
       contents,
@@ -185,6 +309,7 @@ export async function createBackup({ includeLogs = false, label = '', trigger = 
     throw e;
   } finally {
     running = null;
+    maintenance.release(lease);
     await fsp.rm(tmp, { recursive: true, force: true });
   }
 }
@@ -212,6 +337,7 @@ export async function listBackups() {
         label: meta?.label || '',
         includeLogs: Boolean(meta?.includeLogs),
         dbMethod: meta?.dbMethod || null,
+        dbIntegrity: meta?.dbIntegrity || null,
         ts3Version: meta?.ts3Version || null,
         contents: meta?.contents || [],
         notes: meta?.notes || [],
@@ -273,6 +399,7 @@ export async function restoreBackup(id, { username = 'system' } = {}) {
   if (running) throw new HttpError(409, 'backup.runningWait');
   const zipPath = backupPath(id);
   const dir = ts3Dir();
+  const lease = maintenance.acquire('restore', { by: username, detail: id });
   const steps = [];
   const log = (msg) => steps.push({ ts: new Date().toISOString(), msg });
   restoring = { id, startedAt: new Date().toISOString(), steps };
@@ -287,7 +414,7 @@ export async function restoreBackup(id, { username = 'system' } = {}) {
     if (!hasDb && !hasFiles) throw new HttpError(400, 'backup.emptyArchive');
 
     log(ts('backup.log.safety'));
-    const safety = await createBackup({ label: 'pre-restore', trigger: 'pre-restore', username });
+    const safety = await createBackup({ label: 'pre-restore', trigger: 'pre-restore', username, parent: lease.token });
     log(ts('backup.log.safetyDone', { id: safety.id }));
 
     const status = await getProcessStatus();
@@ -340,6 +467,7 @@ export async function restoreBackup(id, { username = 'system' } = {}) {
     throw e;
   } finally {
     restoring = null;
+    maintenance.release(lease);
     watchdog.release();
     await fsp.rm(tmp, { recursive: true, force: true });
   }
