@@ -39,8 +39,34 @@ router.get('/by-cldbid/:cldbid', requireCap('history.view'), asyncHandler(async 
 
 router.get('/:uid', requireCap('history.view'), asyncHandler(async (req, res) => {
   const uid = uidParam(req.params.uid);
-  const profile = await getProfile(uid);
-  if (!profile) throw new HttpError(404, 'history.noneForUid');
+  let profile = await getProfile(uid);
+  let tracked = true;
+  if (!profile) {
+    // Noch keine Historie: Live-Profil aus TS3-Daten aufbauen (nicht gespeichert), sonst 404
+    if (!ts3.connected) throw new HttpError(404, 'history.noneForUid');
+    const ts = ts3.get();
+    const clients = await ts.clientList({ clientType: 0 }).catch(() => []);
+    const me = clients.find((c) => c.uniqueIdentifier === uid);
+    let cldbid = me ? String(me.databaseId) : null;
+    let nickname = me?.nickname || '';
+    if (!me) {
+      const found = await listOrEmpty(ts.clientDbFind(uid, true)).catch(() => []);
+      if (!found.length) throw new HttpError(404, 'history.noneForUid');
+      cldbid = String(found[0].cldbid);
+      nickname = found[0].name || '';
+    }
+    const now = Date.now();
+    const seen = me?.lastconnected ? Number(me.lastconnected) * 1000 : now;
+    profile = {
+      identity: {
+        uid, cldbid, nickname, nicknames: nickname ? [{ name: nickname, first: seen, last: now, count: 1 }] : [], ips: [],
+        countries: me?.country ? [{ code: me.country, count: 1 }] : [], firstSeen: seen, lastSeen: now, sessions: 0, onlineSec: 0,
+        online: Boolean(me), notes: [], platform: me?.platform || '', version: me?.version || '',
+      },
+      sessions: [], sessionsTotal: 0, events: [], daily: [], hours: Array(24).fill(0),
+    };
+    tracked = false;
+  }
 
   // Live-Daten aus TS3 ergänzen, soweit erreichbar
   const live = { available: ts3.connected, online: null, db: null, groups: [], bans: [], complaints: [] };
@@ -96,7 +122,7 @@ router.get('/:uid', requireCap('history.view'), asyncHandler(async (req, res) =>
     return typeof d.nickname === 'string' && names.has(d.nickname) && /^(client|ban)\./.test(e.action);
   }).slice(0, 100);
 
-  res.json({ ...profile, live, actions });
+  res.json({ ...profile, live, actions, tracked });
 }));
 
 router.post('/:uid/notes', requireCap('history.manage'), asyncHandler(async (req, res) => {

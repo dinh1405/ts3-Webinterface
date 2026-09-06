@@ -15,11 +15,13 @@ const C_UP = '#059669';
 const C_DOWN = '#d97706';
 const C_PING = '#db2777';
 const RANGES = ['6h', '24h', '7d', '30d'] as const;
+const HEAT_DAYS = [7, 30, 90] as const;
 
 export default function StatsPage() {
   const { t } = useT();
   const [range, setRange] = useState<'6h' | '24h' | '7d' | '30d'>('24h');
-  const q = useQuery({ queryKey: ['stats', range], queryFn: () => api.get<StatsResponse>(`/api/stats?range=${range}`), refetchInterval: 60000 });
+  const [heatDays, setHeatDays] = useState<(typeof HEAT_DAYS)[number]>(30);
+  const q = useQuery({ queryKey: ['stats', range, heatDays], queryFn: () => api.get<StatsResponse>(`/api/stats?range=${range}&heatmapDays=${heatDays}`), refetchInterval: 60000 });
 
   const tickFmt = useMemo(() => {
     const short = range === '6h' || range === '24h';
@@ -89,7 +91,10 @@ export default function StatsPage() {
             </Card>
           </div>
 
-          <Card title={t('stats.peakTimes')} subtitle={t('stats.peakTimesSub')} className="mt-4">
+          <Card title={t('stats.peakTimes')} subtitle={`${t('stats.peakTimesSub')} · ${t('stats.heatmapWindow', { days: d.heatmapWindowDays })}`} className="mt-4"
+            actions={<div className="flex gap-1 rounded-lg border border-slate-800 bg-slate-900/60 p-0.5">
+              {HEAT_DAYS.map((n) => <button key={n} onClick={() => setHeatDays(n)} className={clsx('rounded-md px-2 py-1 text-xs font-medium transition', heatDays === n ? 'bg-indigo-500/20 text-indigo-200' : 'text-slate-400 hover:text-slate-100')}>{t('stats.days', { count: n })}</button>)}
+            </div>}>
             <Heatmap data={d.heatmap} />
           </Card>
 

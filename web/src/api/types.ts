@@ -167,6 +167,8 @@ export interface StatsResponse {
     avgLoss: number | null;
   };
   heatmap: (number | null)[][];
+  heatmapWindowDays: number;
+  heatmapSamples: number;
   timezone: string;
 }
 
@@ -505,6 +507,8 @@ export interface HistoryProfile {
     complaints: { targetCldbid: string; targetName: string; fromCldbid: string; fromName: string; message: string; timestamp: number; direction: 'about' | 'by' }[];
   };
   actions: AuditEntry[];
+  /** false = Live-Profil ohne aufgezeichnete Historie */
+  tracked?: boolean;
 }
 
 export interface HistorySummary {

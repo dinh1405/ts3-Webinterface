@@ -25,7 +25,7 @@ type Tab = 'tree' | 'list' | 'db';
 interface TreeResponse { tree: Channel[]; clients: Client[]; channelCount: number; clientCount: number }
 
 export default function ClientsPage() {
-  const { can } = useAuth(); const canWrite = can('clients.manage'); const canChannels = can('channels.manage'); const canBan = can('bans.manage'); const canGroups = can('groups.manage');
+  const { can } = useAuth(); const canWrite = can('clients.manage'); const canChannels = can('channels.manage'); const canBan = can('bans.manage'); const canGroups = can('groups.manage'); const canHistory = can('history.view');
   const { t } = useT();
   const [tab, setTab] = useState<Tab>('tree');
   const [selected, setSelected] = useState<Client | null>(null);
@@ -125,7 +125,7 @@ export default function ClientsPage() {
                         <td>{formatDuration(Math.floor(c.idleTime / 1000))}</td>
                         <td>{formatDate(c.lastconnected)}</td>
                         <td className="text-xs text-slate-400">{c.version?.split(' ')[0]} · {c.platform}</td>
-                        <td className="text-right"><Button size="sm" variant="ghost">{t('clients.details')}</Button></td>
+                        <td className="text-right"><span className="inline-flex items-center gap-1">{canHistory && <Link to={`/history/${encodeURIComponent(c.uid)}`} className="btn btn-ghost btn-sm" title={t('common.profileTitle')} onClick={(e) => e.stopPropagation()}><History className="h-3.5 w-3.5" /></Link>}<Button size="sm" variant="ghost">{t('clients.details')}</Button></span></td>
                       </tr>
                     );
                   })}
@@ -366,13 +366,13 @@ function ClientModal({ client, onClose, channels, canWrite, canBan, canGroups }:
 }
 
 /** Servergruppen eines Clients anzeigen und (mit Schreibrecht) ändern. */
-export function ClientGroups({ cldbid, nickname, canWrite }: { cldbid: string; nickname: string; canWrite: boolean }) {
+export function ClientGroups({ cldbid, nickname, canWrite, onChanged }: { cldbid: string; nickname: string; canWrite: boolean; onChanged?: () => void }) {
   const qc = useQueryClient();
   const { t } = useT();
   const [selected, setSelected] = useState('');
   const mine = useQuery({ queryKey: ['groups', 'client', cldbid], queryFn: () => api.get<{ groups: { sgid: string; name: string }[] }>(`/api/groups/client/${cldbid}`) });
   const all = useQuery({ queryKey: ['groups'], queryFn: () => api.get<GroupsResponse>('/api/groups'), enabled: canWrite });
-  const inv = () => { qc.invalidateQueries({ queryKey: ['groups'] }); qc.invalidateQueries({ queryKey: ['clients'] }); };
+  const inv = () => { qc.invalidateQueries({ queryKey: ['groups'] }); qc.invalidateQueries({ queryKey: ['clients'] }); onChanged?.(); };
   const add = useMutation({
     mutationFn: (sgid: string) => api.post(`/api/groups/server/${sgid}/members`, { cldbid }),
     onSuccess: () => { toast.success(t('clients.addedToGroup', { nickname })); setSelected(''); inv(); },

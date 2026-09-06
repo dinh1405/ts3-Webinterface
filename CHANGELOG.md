@@ -5,6 +5,21 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.3.0] – 2026-09-06
+
+### Added
+- Client profile: server groups can be added and removed directly on the profile page.
+- Live profile for clients without recorded history (online or known in the TS3 database): the profile page shows the live data with a note instead of a 404.
+- Clicking an online client on the dashboard, in the client list or in a group's member list opens the client profile.
+- Statistics: the peak-time heatmap always covers a fixed window (7/30/90 days, default 30) independent of the selected chart range.
+
+### Changed
+- Navigation grouped into Overview, Clients, Server and Administration.
+- Roles & rights: group headings are sticky and show icon, number of rights and how many are enabled per role.
+
+### Fixed
+- Stopping a virtual server from the dashboard failed with "ts is not a function".
+
 ## [1.2.0] – 2026-09-05
 
 ### Added

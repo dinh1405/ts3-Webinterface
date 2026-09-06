@@ -622,7 +622,7 @@ const de = {
   'stats.pingSub': 'Durchschnittlicher Ping aller Clients in ms',
   'stats.loss': 'Paketverlust',
   'stats.peakTimes': 'Spitzenzeiten',
-  'stats.peakTimesSub': 'Durchschnittliche Clients je Wochentag und Stunde im gewählten Zeitraum',
+  'stats.peakTimesSub': 'Durchschnittliche Clients je Wochentag und Uhrzeit',
   'stats.availabilitySub': 'Anteil der Messpunkte mit laufendem Serverprozess',
   'stats.availabilityTip': '{time}: {pct} % · {clients} Clients',
   'stats.sentLegend': 'Gesendet = vom Server an Clients',
@@ -1448,6 +1448,19 @@ const de = {
   'system.self.confirmPoint2': 'Angemeldete Benutzer bleiben angemeldet; laufende Backups oder Updates blockieren den Vorgang.',
   'system.self.confirmPoint3': 'Am Ende startet der Dienst neu (etwa 5 Sekunden nicht erreichbar).',
   'system.self.confirmPoint3Manual': 'Am Ende muss der Dienst manuell neu gestartet werden.',
+  // 1.3.0: Navigation, Rollen, Heatmap, Profil
+  'navGroup.overview': 'Übersicht',
+  'navGroup.clients': 'Clients',
+  'navGroup.server': 'Server',
+  'navGroup.admin': 'Verwaltung',
+  'users.rightCount_one': '1 Recht',
+  'users.rightCount_other': '{count} Rechte',
+  'stats.heatmapWindow': 'letzte {days} Tage, unabhängig vom Zeitraum oben',
+  'stats.days_one': '{count} Tag',
+  'stats.days_other': '{count} Tage',
+  'profile.notTracked': 'Für diesen Client wurde noch keine Historie aufgezeichnet. Angezeigt werden nur die Live-Daten aus TeamSpeak; Sitzungen, Nicknames und Notizen erscheinen ab der nächsten Verbindung.',
+  'profile.groupsSub': 'Gruppen direkt hinzufügen oder entfernen',
+  'profile.groupPerms': 'Rechte bearbeiten:',
 } as const;
 
 export default de;

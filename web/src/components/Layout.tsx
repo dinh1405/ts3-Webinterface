@@ -49,23 +49,33 @@ export function Layout() {
 
   useEffect(() => { setOpen(false); }, [location.pathname]);
 
-  const nav = [
-    { to: '/', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
-    { to: '/stats', label: t('nav.stats'), icon: BarChart3 },
-    { to: '/clients', label: t('nav.clients'), icon: Users },
-    { to: '/history', label: t('nav.history'), icon: History, cap: 'history.view' },
-    { to: '/groups', label: t('nav.groups'), icon: Shield },
-    { to: '/bans', label: t('nav.bans'), icon: Ban },
-    { to: '/complaints', label: t('nav.complaints'), icon: Flag },
-    { to: '/files', label: t('nav.files'), icon: FolderOpen, cap: 'files.view' },
-    { to: '/logs', label: t('nav.logs'), icon: ScrollText, cap: 'logs.view' },
-    { to: '/settings', label: t('nav.settings'), icon: Settings, cap: 'settings.view' },
-    { to: '/backups', label: t('nav.backups'), icon: Archive, cap: 'backups.view' },
-    { to: '/system', label: t('nav.system'), icon: Cpu, cap: 'system.view' },
-    { to: '/users', label: t('nav.users'), icon: UserCog, cap: 'users.manage' },
-    { to: '/audit', label: t('nav.audit'), icon: ClipboardList, cap: 'audit.view' },
-    { to: '/account', label: t('nav.account'), icon: KeyRound },
-  ].filter((item) => !item.cap || can(item.cap));
+  type NavItem = { to: string; label: string; icon: typeof Users; cap?: string; end?: boolean };
+  const allGroups: { key: 'overview' | 'clients' | 'server' | 'admin'; items: NavItem[] }[] = [
+    { key: 'overview', items: [
+      { to: '/', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
+      { to: '/stats', label: t('nav.stats'), icon: BarChart3 },
+    ] },
+    { key: 'clients', items: [
+      { to: '/clients', label: t('nav.clients'), icon: Users },
+      { to: '/history', label: t('nav.history'), icon: History, cap: 'history.view' },
+      { to: '/groups', label: t('nav.groups'), icon: Shield },
+      { to: '/bans', label: t('nav.bans'), icon: Ban },
+      { to: '/complaints', label: t('nav.complaints'), icon: Flag },
+    ] },
+    { key: 'server', items: [
+      { to: '/files', label: t('nav.files'), icon: FolderOpen, cap: 'files.view' },
+      { to: '/logs', label: t('nav.logs'), icon: ScrollText, cap: 'logs.view' },
+      { to: '/settings', label: t('nav.settings'), icon: Settings, cap: 'settings.view' },
+      { to: '/backups', label: t('nav.backups'), icon: Archive, cap: 'backups.view' },
+      { to: '/system', label: t('nav.system'), icon: Cpu, cap: 'system.view' },
+    ] },
+    { key: 'admin', items: [
+      { to: '/users', label: t('nav.users'), icon: UserCog, cap: 'users.manage' },
+      { to: '/audit', label: t('nav.audit'), icon: ClipboardList, cap: 'audit.view' },
+      { to: '/account', label: t('nav.account'), icon: KeyRound },
+    ] },
+  ];
+  const navGroups = allGroups.map((g) => ({ ...g, items: g.items.filter((item) => !item.cap || can(item.cap)) })).filter((g) => g.items.length > 0);
 
   const s = status.data;
   const procRunning = s?.process.running;
@@ -82,17 +92,22 @@ export function Layout() {
         </div>
         <button className="btn btn-ghost btn-icon ml-auto lg:hidden" onClick={() => setOpen(false)} aria-label={t('layout.closeMenu')}><X className="h-4 w-4" /></button>
       </div>
-      <nav className="flex-1 space-y-0.5 px-3">
-        {nav.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.end}
-            className={({ isActive }) => clsx('flex items-center gap-3 rounded-lg px-3 py-1.5 text-sm font-medium transition', isActive ? 'bg-indigo-500/12 text-indigo-300' : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-100')}
-          >
-            <item.icon className="h-4 w-4" />
-            {item.label}
-          </NavLink>
+      <nav className="flex-1 overflow-y-auto px-3">
+        {navGroups.map((g, gi) => (
+          <div key={g.key} className={clsx('space-y-0.5', gi > 0 && 'mt-2')}>
+            <p className="px-3 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">{t(`navGroup.${g.key}`)}</p>
+            {g.items.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.end}
+                className={({ isActive }) => clsx('flex items-center gap-3 rounded-lg px-3 py-1 text-sm font-medium transition', isActive ? 'bg-indigo-500/12 text-indigo-300' : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-100')}
+              >
+                <item.icon className="h-4 w-4" />
+                {item.label}
+              </NavLink>
+            ))}
+          </div>
         ))}
       </nav>
       <div className="border-t border-slate-800 p-3">

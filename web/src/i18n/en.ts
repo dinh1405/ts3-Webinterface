@@ -621,7 +621,7 @@ const en: Record<keyof typeof de, string> = {
   'stats.pingSub': 'Average ping of all clients in ms',
   'stats.loss': 'Packet loss',
   'stats.peakTimes': 'Peak times',
-  'stats.peakTimesSub': 'Average clients per weekday and hour in the selected range',
+  'stats.peakTimesSub': 'Average clients per weekday and hour',
   'stats.availabilitySub': 'Share of samples with a running server process',
   'stats.availabilityTip': '{time}: {pct} % · {clients} clients',
   'stats.sentLegend': 'Sent = from the server to clients',
@@ -1447,6 +1447,19 @@ const en: Record<keyof typeof de, string> = {
   'system.self.confirmPoint2': 'Signed-in users stay signed in; running backups or updates block the operation.',
   'system.self.confirmPoint3': 'At the end the service restarts (unreachable for about 5 seconds).',
   'system.self.confirmPoint3Manual': 'At the end the service must be restarted manually.',
+  // 1.3.0: navigation, roles, heatmap, profile
+  'navGroup.overview': 'Overview',
+  'navGroup.clients': 'Clients',
+  'navGroup.server': 'Server',
+  'navGroup.admin': 'Administration',
+  'users.rightCount_one': '1 right',
+  'users.rightCount_other': '{count} rights',
+  'stats.heatmapWindow': 'last {days} days, independent of the range above',
+  'stats.days_one': '{count} day',
+  'stats.days_other': '{count} days',
+  'profile.notTracked': 'No history has been recorded for this client yet. Only live data from TeamSpeak is shown; sessions, nicknames and notes appear from the next connection on.',
+  'profile.groupsSub': 'Add or remove groups directly',
+  'profile.groupPerms': 'Edit permissions:',
 };
 
 export default en;

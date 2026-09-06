@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Ban, Copy, KeyRound, Link2, Pencil, Plus, RotateCcw, Save, Shield, Trash2, UserCog } from 'lucide-react';
+import { Archive, Ban, Copy, Cpu, FolderOpen, KeyRound, Link2, Pencil, Plus, RotateCcw, Save, ScrollText, Server, Shield, Trash2, UserCog, Users } from 'lucide-react';
 import { api, errorMessage } from '../api/client';
 import type { CapabilityGroup, Invite, Role, User } from '../api/types';
 import { useAuth } from '../lib/auth';
@@ -118,7 +118,7 @@ function RolesCard() {
         <Button size="sm" variant="ghost" icon={RotateCcw} loading={reset.isPending} onClick={() => reset.mutate()}>{t('users.defaults')}</Button>
         <Button size="sm" variant="primary" icon={Save} loading={save.isPending} disabled={!dirty} onClick={() => save.mutate()}>{t('common.save')}</Button>
       </>} noPadding>
-      <div className="overflow-x-auto">
+      <div className="max-h-[70vh] overflow-auto">
         <table className="table">
           <thead><tr><th>{t('users.right')}</th><th className="w-36 text-center">{t('role.admin')}</th><th className="w-36 text-center">{t('role.operator')}</th><th className="w-36 text-center">{t('role.viewer')}</th></tr></thead>
           <tbody>
@@ -132,11 +132,24 @@ function RolesCard() {
   );
 }
 
+const GROUP_ICONS: Record<string, typeof Server> = { server: Server, clients: Users, groups: Shield, files: FolderOpen, logs: ScrollText, backups: Archive, system: Cpu, admin: UserCog };
+
 function RoleGroupRows({ group, current, ro, toggle }: { group: CapabilityGroup; current: { operator: Set<string>; viewer: Set<string> }; ro: boolean; toggle: (role: 'operator' | 'viewer', cap: string) => void }) {
   const { t } = useT();
+  const Icon = GROUP_ICONS[group.key] ?? Shield;
+  const total = group.caps.length;
+  const on = (set: Set<string>) => group.caps.filter((c) => set.has(c.key)).length;
   return (
     <>
-      <tr className="bg-slate-900/60"><td colSpan={4} className="text-xs font-semibold uppercase tracking-wide text-slate-400">{group.label}</td></tr>
+      <tr className="sticky top-0 z-10">
+        <td colSpan={4} className="border-l-2 border-indigo-500 bg-slate-800/95 px-3 py-2 backdrop-blur">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="flex items-center gap-2 text-sm font-semibold text-slate-100"><Icon className="h-4 w-4 text-indigo-300" />{group.label}</span>
+            <Badge tone="slate">{t('users.rightCount', { count: total })}</Badge>
+            <span className="ml-auto text-xs text-slate-400">{t('role.operator')} <span className="font-medium text-slate-200">{on(current.operator)}/{total}</span> · {t('role.viewer')} <span className="font-medium text-slate-200">{on(current.viewer)}/{total}</span></span>
+          </div>
+        </td>
+      </tr>
       {group.caps.map((c) => (
         <tr key={c.key}>
           <td><span className="text-slate-100">{c.label}</span>{c.danger && <Badge tone="amber" className="ml-2">{t('users.critical')}</Badge>}<p className="font-mono text-[10px] text-slate-500">{c.key}</p></td>

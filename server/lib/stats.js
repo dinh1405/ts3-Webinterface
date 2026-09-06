@@ -84,11 +84,17 @@ const avg = (arr) => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length :
 /**
  * Liefert verdichtete Zeitreihen, Kennzahlen und eine Wochentag/Stunde-Heatmap.
  */
-export async function queryStats(range = '24h') {
+const heatmapCache = new Map(); // `${days}:${tz}` → { at, heatmap, samples }
+
+export async function queryStats(range = '24h', { heatmapDays = 30 } = {}) {
   const hours = { '6h': 6, '24h': 24, '7d': 168, '30d': 720 }[range] || 24;
   const now = Date.now();
   const since = now - hours * 3600 * 1000;
-  const rows = await readRows(since);
+  // Die Heatmap nutzt ein eigenes, festes Fenster (Standard 30 Tage), unabhängig vom gewählten Zeitraum der Diagramme
+  const days = Math.max(1, Math.min(Number(heatmapDays) || 30, Math.max(7, Number(getSettings().statsRetentionDays) || 90)));
+  const heatSince = now - days * 86400 * 1000;
+  const allRows = await readRows(Math.min(since, heatSince));
+  const rows = allRows.filter((r) => r.t >= since);
   const bucketMs = hours <= 6 ? 60 * 1000 : hours <= 24 ? 5 * 60 * 1000 : hours <= 168 ? 30 * 60 * 1000 : 2 * 3600 * 1000;
 
   const buckets = new Map();
@@ -133,18 +139,26 @@ export async function queryStats(range = '24h') {
     avgLoss: withClients.length ? Math.round(avg(withClients.map((r) => r.loss)) * 10000) / 100 : null,
   };
 
-  // Heatmap: durchschnittliche Clients je Wochentag (0 = Montag) und Stunde in der konfigurierten Zeitzone
+  // Heatmap: durchschnittliche Clients je Wochentag (0 = Montag) und Stunde in der konfigurierten Zeitzone,
+  // über das Heatmap-Fenster (nicht den Diagramm-Zeitraum); 60 s zwischengespeichert, da pro Minute nur eine Zeile dazukommt
   const tz = getSettings().timezone || 'Europe/Berlin';
-  const fmt = new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'short', hour: 'numeric', hour12: false });
-  const WD = { Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 };
-  const cells = Array.from({ length: 7 }, () => Array.from({ length: 24 }, () => []));
-  for (const r of withClients) {
-    const parts = fmt.formatToParts(new Date(r.t));
-    const wd = WD[parts.find((p) => p.type === 'weekday')?.value];
-    const h = Number(parts.find((p) => p.type === 'hour')?.value) % 24;
-    if (wd !== undefined && Number.isFinite(h)) cells[wd][h].push(r.c);
+  const cacheKey = `${days}:${tz}`;
+  let hc = heatmapCache.get(cacheKey);
+  if (!hc || now - hc.at > 60 * 1000) {
+    const fmt = new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'short', hour: 'numeric', hour12: false });
+    const WD = { Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 };
+    const cells = Array.from({ length: 7 }, () => Array.from({ length: 24 }, () => []));
+    let samples = 0;
+    for (const r of allRows) {
+      if (r.t < heatSince || r.c === null) continue;
+      const parts = fmt.formatToParts(new Date(r.t));
+      const wd = WD[parts.find((p) => p.type === 'weekday')?.value];
+      const h = Number(parts.find((p) => p.type === 'hour')?.value) % 24;
+      if (wd !== undefined && Number.isFinite(h)) { cells[wd][h].push(r.c); samples++; }
+    }
+    hc = { at: now, samples, heatmap: cells.map((day) => day.map((list) => (list.length ? Math.round(avg(list) * 10) / 10 : null))) };
+    heatmapCache.set(cacheKey, hc);
   }
-  const heatmap = cells.map((day) => day.map((list) => (list.length ? Math.round(avg(list) * 10) / 10 : null)));
 
-  return { range, hours, bucketMs, points, summary, heatmap, timezone: tz };
+  return { range, hours, bucketMs, points, summary, heatmap: hc.heatmap, heatmapWindowDays: days, heatmapSamples: hc.samples, timezone: tz };
 }

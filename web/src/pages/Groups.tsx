@@ -106,6 +106,7 @@ function ServerGroupsTable({ data, canWrite }: { data: GroupsResponse; canWrite:
 
 function MembersModal({ group, onClose, canWrite }: { group: ServerGroup | null; onClose: () => void; canWrite: boolean }) {
   const { t } = useT();
+  const canHistory = useAuth().can('history.view');
   const qc = useQueryClient();
   const [q, setQ] = useState('');
   const [submitted, setSubmitted] = useState('');
@@ -131,7 +132,7 @@ function MembersModal({ group, onClose, canWrite }: { group: ServerGroup | null;
         <ul className="max-h-64 divide-y divide-slate-800/70 overflow-y-auto rounded-lg border border-slate-800">
           {members.data.members.map((m) => (
             <li key={m.cldbid} className="flex items-center gap-3 px-3 py-2 text-sm">
-              <span className="font-medium text-slate-100">{m.nickname}</span>
+              {canHistory ? <Link to={`/history/${encodeURIComponent(m.uid)}`} className="font-medium text-slate-100 hover:underline" title={t('common.profileTitle')}>{m.nickname}</Link> : <span className="font-medium text-slate-100">{m.nickname}</span>}
               <span className="truncate font-mono text-[11px] text-slate-500">{m.uid}</span>
               <span className="ml-auto font-mono text-xs text-slate-500">#{m.cldbid}</span>
               {canWrite && <Button size="sm" variant="ghost" icon={X} onClick={() => remove.mutate(m.cldbid)} loading={remove.isPending && remove.variables === m.cldbid} title={t('perms.remove')} />}

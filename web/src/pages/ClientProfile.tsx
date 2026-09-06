@@ -11,6 +11,7 @@ import { useAuth } from '../lib/auth';
 import { banDuration, countryFlag, durationPresets, formatBytes, formatDate, formatDayMonth, formatDuration, formatDurationShort, formatRelative, formatShortDate } from '../lib/format';
 import { td, useT } from '../i18n';
 import { Badge, Button, Card, ConfirmDialog, EmptyState, ErrorBox, Field, FullPageSpinner, KV, Modal, PageHeader, Stat, Toggle } from '../components/ui';
+import { ClientGroups } from './Clients';
 
 const EVENT_META: Record<HistoryEvent['type'], { tone: 'indigo' | 'slate' | 'amber' | 'red'; icon: typeof Tag }> = {
   nick: { tone: 'indigo', icon: Tag },
@@ -30,6 +31,7 @@ export default function ClientProfilePage() {
   const { t } = useT();
   const canManage = can('history.manage');
   const canBan = can('bans.manage');
+  const canGroups = can('groups.manage');
   const [tab, setTab] = useState<'sessions' | 'events' | 'actions'>('sessions');
   const [banOpen, setBanOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -69,6 +71,7 @@ export default function ClientProfilePage() {
   const id = p.identity;
   const online = p.live.online;
   const country = id.countries[0]?.code || '';
+  const groupCldbid = p.live.db?.cldbid ?? id.cldbid ?? null;
 
   return (
     <div className="space-y-6">
@@ -81,9 +84,11 @@ export default function ClientProfilePage() {
           {id.cldbid && <Link to={`/permissions/client/${id.cldbid}`} className="btn btn-secondary btn-sm"><KeyRound className="h-3.5 w-3.5" /> {t('groups.permissions')}</Link>}
           {id.cldbid && online && <Link to={`/permissions/overview/${id.cldbid}/${online.cid}`} className="btn btn-secondary btn-sm"><Eye className="h-3.5 w-3.5" /> {t('perms.effective')}</Link>}
           {canBan && id.cldbid && p.live.available && <Button size="sm" variant="danger" icon={Ban} onClick={() => setBanOpen(true)}>{t('clients.ban')}</Button>}
-          {canManage && <Button size="sm" variant="ghost" icon={Trash2} onClick={() => setDeleteOpen(true)} title={t('profile.deleteHistoryTitle')}>{t('profile.deleteHistory')}</Button>}
+          {canManage && p.tracked !== false && <Button size="sm" variant="ghost" icon={Trash2} onClick={() => setDeleteOpen(true)} title={t('profile.deleteHistoryTitle')}>{t('profile.deleteHistory')}</Button>}
         </div>}
       />
+
+      {p.tracked === false && <div className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-sm text-sky-200">{t('profile.notTracked')}</div>}
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label={t('profile.sessions')} value={id.sessions} sub={p.live.db ? t('profile.perDb', { count: p.live.db.totalconnections }) : undefined} icon={LogIn} />
@@ -186,8 +191,17 @@ export default function ClientProfilePage() {
             <div className="mt-1 flex justify-between text-[10px] text-slate-500"><span>{t('profile.hour0')}</span><span>6</span><span>12</span><span>18</span><span>{t('profile.hour24')}</span></div>
           </Card>
 
-          <Card title={t('clients.serverGroups')} noPadding>
-            {p.live.groups.length === 0 ? <p className="px-5 py-3 text-sm text-slate-500">{p.live.available ? t('profile.noGroups') : t('profile.unavailable')}</p> : (
+          <Card title={t('clients.serverGroups')} subtitle={p.live.available && groupCldbid ? t('profile.groupsSub') : undefined} noPadding>
+            {p.live.available && groupCldbid ? (
+              <div className="space-y-3 px-5 py-3">
+                <ClientGroups cldbid={groupCldbid} nickname={id.nickname} canWrite={canGroups} onChanged={() => qc.invalidateQueries({ queryKey: key })} />
+                {p.live.groups.length > 0 && (
+                  <p className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500">{t('profile.groupPerms')}
+                    {p.live.groups.map((g) => <Link key={g.sgid} to={`/permissions/servergroup/${g.sgid}`} className="badge bg-slate-500/15 text-slate-200 ring-1 ring-inset ring-slate-500/30 hover:ring-indigo-400"><Shield className="h-3 w-3" />{g.name}</Link>)}
+                  </p>
+                )}
+              </div>
+            ) : p.live.groups.length === 0 ? <p className="px-5 py-3 text-sm text-slate-500">{p.live.available ? t('profile.noGroups') : t('profile.unavailable')}</p> : (
               <ul className="flex flex-wrap gap-1.5 px-5 py-3">
                 {p.live.groups.map((g) => <li key={g.sgid}><Link to={`/permissions/servergroup/${g.sgid}`} className="badge bg-slate-500/15 text-slate-200 ring-1 ring-inset ring-slate-500/30 hover:ring-indigo-400"><Shield className="h-3 w-3" />{g.name}</Link></li>)}
               </ul>
@@ -225,7 +239,7 @@ export default function ClientProfilePage() {
           </Card>
 
           <Card title={t('profile.notes')} subtitle={t('profile.notesSub')} noPadding>
-            {canManage && (
+            {canManage && p.tracked !== false && (
               <form className="border-b border-slate-800 p-4" onSubmit={(e) => { e.preventDefault(); if (note.trim()) addNote.mutate(); }}>
                 <textarea className="input min-h-16" placeholder={t('profile.notePlaceholder')} value={note} onChange={(e) => setNote(e.target.value)} maxLength={2000} />
                 <div className="mt-2 flex justify-end"><Button type="submit" size="sm" variant="primary" icon={Pencil} loading={addNote.isPending} disabled={!note.trim()}>{t('common.save')}</Button></div>

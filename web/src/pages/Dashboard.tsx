@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { clsx } from 'clsx';
@@ -238,6 +238,7 @@ export default function DashboardPage() {
 function OnlineClientsCard({ connected }: { connected: boolean }) {
   const canHistory = useAuth().can('history.view');
   const { t } = useT();
+  const navigate = useNavigate();
   const tree = useQuery({ queryKey: ['clients', 'tree'], queryFn: () => api.get<{ tree: Channel[]; clients: Client[] }>('/api/clients/tree'), refetchInterval: 15000, enabled: connected });
   const channelNames = useMemo(() => {
     const m = new Map<string, string>();
@@ -255,7 +256,7 @@ function OnlineClientsCard({ connected }: { connected: boolean }) {
         : (
           <ul className="max-h-96 divide-y divide-slate-800 overflow-y-auto">
             {clients.map((c) => (
-              <li key={c.clid} className="flex items-center gap-3 px-5 py-2 text-sm">
+              <li key={c.clid} className={clsx('flex items-center gap-3 px-5 py-2 text-sm', canHistory && 'cursor-pointer hover:bg-slate-800/40')} onClick={canHistory ? () => navigate(`/history/${encodeURIComponent(c.uid)}`) : undefined} title={canHistory ? t('common.profileTitle') : undefined}>
                 <span title={c.away ? t('dash.away') : c.outputMuted ? t('dash.speakerOff') : c.inputMuted ? t('dash.micOff') : t('dash.active')} className={clsx('h-2 w-2 shrink-0 rounded-full', c.away ? 'bg-slate-500' : c.outputMuted ? 'bg-rose-400' : c.inputMuted ? 'bg-amber-400' : 'bg-emerald-400')} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium text-slate-100">{canHistory ? <Link to={`/history/${encodeURIComponent(c.uid)}`} className="hover:underline" title={t('common.profileTitle')}>{c.nickname}</Link> : c.nickname}{c.country && <span className="ml-1.5 text-xs" title={c.country}>{countryFlag(c.country)}</span>}</span>

@@ -80,9 +80,9 @@ router.get('/virtualservers', requireAuth, asyncHandler(async (req, res) => {
 router.post('/virtualservers/:sid/:action', requireCap('server.control'), asyncHandler(async (req, res) => {
   const { sid, action } = req.params;
   if (!/^\d+$/.test(sid)) throw new HttpError(400, 'errors.invalidServerId');
-  const ts = ts3.get();
-  if (action === 'start') await ts.serverStart(sid);
-  else if (action === 'stop') await ts.serverStop(sid, ts('server.stopReason'));
+  const q = ts3.get();
+  if (action === 'start') await q.serverStart(sid);
+  else if (action === 'stop') await q.serverStop(sid, ts('server.stopReason'));
   else throw new HttpError(400, 'errors.unknownAction');
   audit(req, `virtualserver.${action}`, { sid });
   res.json({ ok: true });
