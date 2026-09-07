@@ -305,7 +305,13 @@ async function detectSystemdUnits() {
       if (m) u.dir = m[1];
     }
   }
-  return [...units.values()];
+  // Nur Units behalten, die tatsächlich einen ts3server starten: der eigene Dienst (ts3-webinterface) und andere
+  // Dienste mit „ts3“ im Namen, deren ExecStart nur node oder docker ist, wären sonst falsche Kandidaten (/usr/bin).
+  return [...units.values()].filter((u) => {
+    if (/webinterface|ts3web|ts3wi/i.test(u.name)) return false;
+    if (/ts3server/.test(u.execStart || '')) return true;
+    return Boolean(u.dir && (fs.existsSync(path.join(u.dir, 'ts3server')) || fs.existsSync(path.join(u.dir, 'ts3server_startscript.sh'))));
+  });
 }
 
 async function detectDockerContainers() {

@@ -5,7 +5,11 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.4.2] – 2026-09-07
+
 ### Fixed
+- Setup wizard: the webinterface's own systemd service (`ts3-webinterface.service`) was listed as a TeamSpeak installation
+  candidate (`/usr/bin`, "running"). Only units that actually start `ts3server` are considered now.
 - Installer: a fresh install from GitHub failed with `curl: (3) URL using bad/illegal format` and printed the OS version
   ("12 (bookworm)") as "Latest version". Sourcing `/etc/os-release` overwrote the installer's `VERSION` variable; only
   `ID`/`ID_LIKE` are read now. `ts3web update` was not affected (it downloads the package itself).
