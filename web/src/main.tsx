@@ -21,6 +21,9 @@ const BansPage = lazy(() => import('./pages/Bans'));
 const GroupsPage = lazy(() => import('./pages/Groups'));
 const PermissionsPage = lazy(() => import('./pages/Permissions'));
 const PermissionOverviewPage = lazy(() => import('./pages/Permissions').then((m) => ({ default: m.PermissionOverviewPage })));
+const PermissionsHomePage = lazy(() => import('./pages/PermissionsHome'));
+const PermissionComparePage = lazy(() => import('./pages/PermissionCompare'));
+const MessagesPage = lazy(() => import('./pages/Messages'));
 const SystemPage = lazy(() => import('./pages/System'));
 const StatsPage = lazy(() => import('./pages/Stats'));
 const ComplaintsPage = lazy(() => import('./pages/Complaints'));
@@ -89,12 +92,15 @@ const router = createBrowserRouter([
       { path: 'clients', element: <ClientsPage /> },
       { path: 'bans', element: <BansPage /> },
       { path: 'groups', element: <GroupsPage /> },
+      { path: 'permissions', element: <PermissionsHomePage /> },
+      { path: 'permissions/compare', element: <PermissionComparePage /> },
       { path: 'permissions/overview/:cldbid/:cid', element: <PermissionOverviewPage /> },
       { path: 'permissions/:kind/:id', element: <PermissionsPage /> },
       { path: 'complaints', element: <ComplaintsPage /> },
       { path: 'stats', element: <StatsPage /> },
       { path: 'account', element: <AccountPage /> },
       { element: <RequireCap cap="history.view" />, children: [{ path: 'history', element: <HistoryPage /> }, { path: 'history/:uid', element: <ClientProfilePage /> }] },
+      { element: <RequireCap cap="messages.view" />, children: [{ path: 'messages', element: <MessagesPage /> }] },
       { element: <RequireCap cap="users.manage" />, children: [{ path: 'users', element: <UsersPage /> }] },
       { element: <RequireCap cap="audit.view" />, children: [{ path: 'audit', element: <AuditPage /> }] },
       { element: <RequireCap cap="logs.view" />, children: [{ path: 'logs', element: <LogsPage /> }] },

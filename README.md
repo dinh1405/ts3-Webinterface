@@ -114,7 +114,9 @@ Everything can be changed later under **Settings → Connection & installation**
 | **Bans** | Ban list, add ban (IP / name / UID / myTeamSpeak id, duration, reason), **unban**, delete all |
 | **Logs** | Server/instance log via ServerQuery (live, filter, load older entries), log files in `logs/` (tail, search, level filter, download) |
 | **Settings** | Virtual server (name, welcome message, password, slots, host banner/button, default groups, anti-flood, quota, logging …) and instance (file transfer port, bandwidth, query flood protection) |
-| **Backups** | ZIP backup (consistent SQLite copy, `files/`, ini, licence, query lists), **download**, upload, delete, **restore** (with safety copy), ServerQuery snapshots create/deploy, **schedule** (daily/weekly, retention) |
+| **Backups** | ZIP backup (consistent SQLite copy, `files/`, ini, licence, query lists, optional **snapshot**), **download**, upload, delete, **restore** (with safety copy), ServerQuery snapshots create/deploy, **schedule** (daily/weekly, retention) |
+| **Permission editor** | Edit permissions of server/channel groups, channels and clients; **compare** two objects, **copy from …**, **export/import** as JSON, **presets** (save, apply as merge or replace) |
+| **Offline messages** | Inbox of the query account, compose to any client from the database (offline too), unread badge |
 | **Statistics** | Per-minute collection of clients, channels, bandwidth, ping and process status; charts for 6 h to 30 days, peak-time heatmap (weekday × hour), availability, traffic sums; 90 days retention (`data/stats/`) |
 | **Watchdog** | Checks the TS3 process regularly, restarts it after a crash (limit per hour, then notification), autostart when the web interface service starts (= after reboot); stopping the server deliberately pauses the watchdog |
 | **Notifications** | Discord webhook, Telegram bot, e-mail (local sendmail), generic webhook with HMAC signature; selectable events (server stop/restart, watchdog, backups, updates, bans, kicks, login lock, query loss); test send, history. **System-wide** and **per user** (My account) – each in the recipient's language |

@@ -22,10 +22,10 @@ router.get('/', requireCap('backups.view'), asyncHandler(async (req, res) => {
 }));
 
 router.post('/', requireCap('backups.manage'), asyncHandler(async (req, res) => {
-  const { includeLogs, label } = z.object({ includeLogs: z.boolean().default(false), label: z.string().max(80).default('') }).parse(req.body || {});
+  const { includeLogs, includeSnapshot, label } = z.object({ includeLogs: z.boolean().default(false), includeSnapshot: z.boolean().default(false), label: z.string().max(80).default('') }).parse(req.body || {});
   try {
-    const meta = await createBackup({ includeLogs, label, trigger: 'manual', username: req.user.username });
-    audit(req, 'backup.create', { id: meta.id, size: meta.size, includeLogs });
+    const meta = await createBackup({ includeLogs, includeSnapshot, label, trigger: 'manual', username: req.user.username });
+    audit(req, 'backup.create', { id: meta.id, size: meta.size, includeLogs, includeSnapshot });
     res.json({ ok: true, backup: meta });
   } catch (e) {
     audit(req, 'backup.create', { error: e.message }, false);
@@ -46,6 +46,7 @@ router.put('/schedule', requireCap('backups.manage'), asyncHandler(async (req, r
     weekday: z.coerce.number().int().min(0).max(6).default(0),
     keep: z.coerce.number().int().min(1).max(365).default(7),
     includeLogs: z.boolean().default(false),
+    includeSnapshot: z.boolean().default(false),
     timezone: z.string().max(64).optional(),
   }).parse(req.body);
   const { timezone, ...schedule } = body;

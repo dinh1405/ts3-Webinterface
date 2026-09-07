@@ -1,9 +1,10 @@
 import { useMemo, useRef, useState } from 'react';
+import { AllFilesView } from '../components/AllFilesView';
 import { useSearchParams } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { clsx } from 'clsx';
-import { ChevronRight, Download, File, Folder, FolderPlus, Image, Link2, Pencil, RefreshCw, Trash2, Upload } from 'lucide-react';
+import { ChevronRight, Download, File, Folder, FolderPlus, Image, Link2, List, Pencil, RefreshCw, Trash2, Upload } from 'lucide-react';
 import { api, errorMessage } from '../api/client';
 import type { Channel, FileEntry, GroupsResponse, IconEntry } from '../api/types';
 import { useAuth } from '../lib/auth';
@@ -11,7 +12,7 @@ import { formatBytes, formatDate } from '../lib/format';
 import { useT } from '../i18n';
 import { Button, Card, ConfirmDialog, EmptyState, ErrorBox, Field, FullPageSpinner, Modal, PageHeader } from '../components/ui';
 
-type Tab = 'files' | 'icons';
+type Tab = 'files' | 'icons' | 'all';
 
 export default function FilesPage() {
   const { t } = useT();
@@ -22,11 +23,11 @@ export default function FilesPage() {
     <div>
       <PageHeader title={t('files.title')} description={t('files.description')} />
       <div className="mb-4 flex w-fit gap-1 rounded-lg border border-slate-800 bg-slate-900/60 p-1">
-        {([['files', t('files.tab.files'), Folder], ['icons', t('files.tab.icons'), Image]] as const).map(([key, label, Icon]) => (
+        {([['files', t('files.tab.files'), Folder], ['all', t('files.tab.all'), List], ['icons', t('files.tab.icons'), Image]] as const).map(([key, label, Icon]) => (
           <button key={key} onClick={() => setTab(key)} className={clsx('flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition', tab === key ? 'bg-indigo-500/20 text-indigo-200' : 'text-slate-400 hover:text-slate-100')}><Icon className="h-4 w-4" />{label}</button>
         ))}
       </div>
-      {tab === 'files' ? <FileBrowser /> : <IconManager />}
+      {tab === 'files' ? <FileBrowser /> : tab === 'all' ? <AllFilesView /> : <IconManager />}
     </div>
   );
 }

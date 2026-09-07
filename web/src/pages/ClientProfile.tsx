@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { clsx } from 'clsx';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { ArrowLeft, Ban, Clock, Eye, Flag, Globe, History, KeyRound, LogIn, Move, Pencil, Shield, StickyNote, Tag, Trash2, UserX, Users } from 'lucide-react';
+import { ArrowLeft, Ban, Clock, Eye, Flag, Globe, History, KeyRound, LogIn, Mail, Move, Pencil, Shield, StickyNote, Tag, Trash2, UserX, Users } from 'lucide-react';
 import { api, errorMessage } from '../api/client';
 import type { HistoryEvent, HistoryProfile, HistorySession } from '../api/types';
 import { useAuth } from '../lib/auth';
@@ -30,6 +30,7 @@ export default function ClientProfilePage() {
   const { can } = useAuth();
   const { t } = useT();
   const canManage = can('history.manage');
+  const canMessage = can('messages.manage');
   const canBan = can('bans.manage');
   const canGroups = can('groups.manage');
   const [tab, setTab] = useState<'sessions' | 'events' | 'actions'>('sessions');
@@ -81,6 +82,7 @@ export default function ClientProfilePage() {
         description={<span className="font-mono text-xs">{id.uid}{id.cldbid && <span className="ml-3 font-sans">DB-ID {id.cldbid}</span>}</span>}
         actions={<div className="flex flex-wrap gap-2">
           {online && <Link to="/clients" className="btn btn-secondary btn-sm"><Users className="h-3.5 w-3.5" /> {t('profile.inTree')}</Link>}
+          {canMessage && <Link to={`/messages?compose=1&to=${encodeURIComponent(id.uid)}&nick=${encodeURIComponent(id.nickname || '')}`} className="btn btn-secondary btn-sm"><Mail className="h-3.5 w-3.5" /> {t('messages.sendTo')}</Link>}
           {id.cldbid && <Link to={`/permissions/client/${id.cldbid}`} className="btn btn-secondary btn-sm"><KeyRound className="h-3.5 w-3.5" /> {t('groups.permissions')}</Link>}
           {id.cldbid && online && <Link to={`/permissions/overview/${id.cldbid}/${online.cid}`} className="btn btn-secondary btn-sm"><Eye className="h-3.5 w-3.5" /> {t('perms.effective')}</Link>}
           {canBan && id.cldbid && p.live.available && <Button size="sm" variant="danger" icon={Ban} onClick={() => setBanOpen(true)}>{t('clients.ban')}</Button>}

@@ -19,7 +19,7 @@ describe('capabilities', () => {
     // Alte Konfiguration (vor history.*): Beobachter ohne Liste der bekannten Rechte
     await updateSettings({ roleCapabilities: { operator: ['bans.manage'], viewer: [] } });
     let roles = roleCapabilities();
-    expect(roles.operator).toEqual(['bans.manage', 'history.view', 'history.manage']);
+    expect(roles.operator).toEqual(['bans.manage', 'history.view', 'history.manage', 'messages.view', 'messages.manage']);
     expect(roles.viewer).toEqual(['history.view']);
     // Neue Speicherung schreibt den Katalog → nachträgliche Rechte gelten explizit
     roles = await setRoleCapabilities({ operator: ['bans.manage'], viewer: [] });

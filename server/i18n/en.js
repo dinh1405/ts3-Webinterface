@@ -349,4 +349,18 @@ export default {
   'notifyEvent.updateUnverified': 'TS3 update not confirmed',
   'notify.updateUnverified.title': 'TS3 update to {to} not confirmed',
   'notify.updateUnverified.body': 'The TeamSpeak server was updated from {from} to {to} (triggered by {user}) but reports version "{seen}" or no connection afterwards. Please check; the previous version can be restored in the webinterface. Backup: {backup}',
+  // 1.4.0: snapshot in backup, messages, permission presets
+  'backup.note.snapshotFailed': 'Snapshot could not be taken ({error}) – the backup contains no snapshot.json.',
+  'backup.log.snapshotKept': 'Snapshot from the backup stored as {id} (deploying is a separate action under Snapshots)',
+  'backup.log.snapshotSkipped': 'snapshot.json in the backup is unreadable: {error}',
+  'cap.messages.view': 'Read offline messages',
+  'cap.messages.manage': 'Send and delete offline messages',
+  'errors.invalidMessageId': 'Invalid message ID',
+  'messages.notFound': 'Message not found',
+  'errors.invalidPresetId': 'Invalid preset ID',
+  'perms.presetNotFound': 'Preset not found',
+  'perms.tooManyPresets': 'At most {max} presets are possible',
+  'perms.presetNeedsPerms': 'A preset needs at least one permission (provide a list or a source object)',
+  'perms.sameSubject': 'Source and target are the same object',
+  'perms.sourceEmpty': '"{name}" has no permissions set',
 };

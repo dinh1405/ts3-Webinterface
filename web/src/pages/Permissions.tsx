@@ -9,6 +9,7 @@ import type { GroupPermission, PermissionDef, PermKind, PermOverviewEntry } from
 import { useAuth } from '../lib/auth';
 import { useT } from '../i18n';
 import { Badge, Button, Card, ConfirmDialog, EmptyState, ErrorBox, FullPageSpinner, PageHeader, Toggle } from '../components/ui';
+import { PermTools } from '../components/PermTools';
 
 interface Edit { value: number; skip: boolean; negate: boolean }
 interface SubjectResponse { subject: { id: string; kind: PermKind; name: string; type?: number; uid?: string; cid?: string; cldbid?: string }; permissions: GroupPermission[] }
@@ -23,7 +24,7 @@ const CATEGORIES: { key: 'instance' | 'virtualserver' | 'channel' | 'group' | 'c
   { key: 'needed', test: (n) => /^i_needed/.test(n) },
   { key: 'icon', test: (n) => /^i_icon|^b_icon|^i_max|^i_permission|^b_permission_modify/.test(n) },
 ];
-const categoryOf = (name: string) => CATEGORIES.find((c) => c.test(name))?.key ?? 'other';
+export const categoryOf = (name: string) => CATEGORIES.find((c) => c.test(name))?.key ?? 'other';
 const isBool = (name: string) => name.startsWith('b_');
 
 export function CategoryFilter({ q, setQ, category, setCategory, extra }: { q: string; setQ: (v: string) => void; category: string; setCategory: (v: string) => void; extra?: ReactNode }) {
@@ -116,6 +117,12 @@ export default function PermissionsPage() {
           <Link to={backTo} className="btn btn-ghost"><ArrowLeft className="h-4 w-4" /> {t('common.back')}</Link>
         </>}
       />
+
+      {kind !== 'channelclient' && (
+        <div className="mb-4">
+          <PermTools subject={{ kind, id: s.id, name: s.name, type: s.type }} perms={perms.data!.permissions} canWrite={canWrite} onChanged={() => { setEdits({}); qc.invalidateQueries({ queryKey: ['permissions', kind, id] }); }} />
+        </div>
+      )}
 
       <Card noPadding
         actions={<CategoryFilter q={q} setQ={setQ} category={category} setCategory={setCategory} extra={<Toggle checked={onlySet} onChange={setOnlySet} label={t('perms.onlySet')} />} />}

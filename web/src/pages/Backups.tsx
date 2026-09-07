@@ -19,9 +19,10 @@ export default function BackupsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [label, setLabel] = useState('');
   const [includeLogs, setIncludeLogs] = useState(false);
+  const [includeSnapshot, setIncludeSnapshot] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [restoreId, setRestoreId] = useState<string | null>(null);
-  const [restoreResult, setRestoreResult] = useState<{ steps: { ts: string; msg: string }[]; safetyBackup?: string } | null>(null);
+  const [restoreResult, setRestoreResult] = useState<{ steps: { ts: string; msg: string }[]; safetyBackup?: string; snapshotId?: string | null } | null>(null);
   const [detail, setDetail] = useState<Backup | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -33,7 +34,7 @@ export default function BackupsPage() {
   const invalidate = () => qc.invalidateQueries({ queryKey: ['backups'] });
 
   const create = useMutation({
-    mutationFn: () => api.post<{ backup: Backup }>('/api/backups', { includeLogs, label }),
+    mutationFn: () => api.post<{ backup: Backup }>('/api/backups', { includeLogs, includeSnapshot, label }),
     onSuccess: (r) => { toast.success(t('backups.created'), { description: `${r.backup.id} · ${formatBytes(r.backup.size)}` }); setCreateOpen(false); setLabel(''); invalidate(); },
     onError: (e) => { toast.error(errorMessage(e)); invalidate(); },
   });
@@ -43,8 +44,8 @@ export default function BackupsPage() {
     onError: (e) => toast.error(errorMessage(e)),
   });
   const restore = useMutation({
-    mutationFn: (id: string) => api.post<{ ok: boolean; steps: { ts: string; msg: string }[]; safetyBackup: string }>(`/api/backups/${id}/restore`, { confirm: id }),
-    onSuccess: (r) => { toast.success(t('backups.restored')); setRestoreId(null); setRestoreResult(r); invalidate(); qc.invalidateQueries({ queryKey: ['status'] }); },
+    mutationFn: (id: string) => api.post<{ ok: boolean; steps: { ts: string; msg: string }[]; safetyBackup: string; snapshotId?: string | null }>(`/api/backups/${id}/restore`, { confirm: id }),
+    onSuccess: (r) => { toast.success(t('backups.restored')); setRestoreId(null); setRestoreResult(r); invalidate(); qc.invalidateQueries({ queryKey: ['status'] }); qc.invalidateQueries({ queryKey: ['backups', 'snapshots'] }); },
     onError: (e: unknown) => { toast.error(errorMessage(e)); setRestoreId(null); const steps = (e as { data?: { steps?: { ts: string; msg: string }[] } }).data?.steps; if (steps) setRestoreResult({ steps }); invalidate(); },
   });
   const upload = useMutation({
@@ -87,7 +88,7 @@ export default function BackupsPage() {
                           {b.label && <p className="text-xs text-slate-400">{b.label}</p>}
                         </td>
                         <td className="whitespace-nowrap"><span title={formatDate(b.createdAt, true)}>{formatDate(b.createdAt)}</span><p className="text-xs text-slate-500">{b.createdBy}</p></td>
-                        <td><Badge tone={TRIGGER_TONE[b.trigger] || 'slate'}>{triggerLabel(b.trigger)}</Badge></td>
+                        <td><span className="flex flex-wrap gap-1"><Badge tone={TRIGGER_TONE[b.trigger] || 'slate'}>{triggerLabel(b.trigger)}</Badge>{b.snapshot && <span title={b.snapshot.serverName}><Badge tone="purple">Snapshot</Badge></span>}</span></td>
                         <td className="whitespace-nowrap">{formatBytes(b.size)}</td>
                         <td className="text-xs text-slate-400">
                           {b.contents.length ? b.contents.join(', ') : '–'}{b.notes.length > 0 && <span className="ml-1 text-amber-400" title={b.notes.join('\n')}>⚠</span>}
@@ -118,6 +119,7 @@ export default function BackupsPage() {
         <div className="space-y-4">
           <Field label={t('backups.labelOptional')}><input className="input" value={label} onChange={(e) => setLabel(e.target.value)} maxLength={80} placeholder={t('backups.labelPlaceholder')} /></Field>
           <Toggle checked={includeLogs} onChange={setIncludeLogs} label={t('backups.includeLogs')} description={t('backups.includeLogsHint')} />
+          <Toggle checked={includeSnapshot} onChange={setIncludeSnapshot} label={t('backups.includeSnapshot')} description={t('backups.includeSnapshotHint')} />
           <p className="text-xs text-slate-500">{t('backups.contentsNote')}</p>
         </div>
       </Modal>
@@ -141,6 +143,7 @@ export default function BackupsPage() {
         </div>} />
 
       <Modal open={Boolean(restoreResult)} onClose={() => setRestoreResult(null)} title={t('backups.restoreLog')} size="md" footer={<Button variant="primary" onClick={() => setRestoreResult(null)}>{t('common.close')}</Button>}>
+        {restoreResult?.snapshotId && <div className="mb-3 rounded-lg border border-indigo-500/30 bg-indigo-500/10 p-3 text-xs text-indigo-200">{t('backups.restoredSnapshot', { id: restoreResult.snapshotId })}</div>}
         <ol className="space-y-1 font-mono text-xs">
           {restoreResult?.steps.map((s, i) => <li key={i} className="flex gap-3"><span className="text-slate-500">{formatTime(s.ts)}</span><span className={/^(Fehler|Error)/.test(s.msg) ? 'text-rose-300' : 'text-slate-200'}>{s.msg}</span></li>)}
         </ol>
@@ -195,6 +198,7 @@ function ScheduleCard() {
           <Field label={t('wizard.language.timezone')} className="col-span-2"><input className="input" value={s.timezone} disabled={disabled} onChange={(e) => set({ timezone: e.target.value })} /></Field>
         </div>
         <Toggle checked={Boolean(s.includeLogs)} onChange={(v) => set({ includeLogs: v })} disabled={disabled} label={t('backups.includeLogs')} />
+        <Toggle checked={Boolean(s.includeSnapshot)} onChange={(v) => set({ includeSnapshot: v })} disabled={disabled} label={t('backups.includeSnapshot')} description={t('backups.includeSnapshotHint')} />
         <div className="rounded-lg bg-slate-950/60 p-3 text-xs text-slate-400">
           <p>{t('backups.nextRun')}: <span className="text-slate-200">{q.data?.schedule.nextRun ? `${formatDate(q.data.schedule.nextRun)} (${formatRelative(q.data.schedule.nextRun)})` : t('backups.notScheduled')}</span></p>
           {q.data?.schedule.cron && <p>Cron: <span className="font-mono text-slate-300">{q.data.schedule.cron}</span></p>}

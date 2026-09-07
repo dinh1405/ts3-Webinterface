@@ -3,7 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { clsx } from 'clsx';
 import {
-  Activity, Archive, Ban, BarChart3, ClipboardList, Cpu, Flag, FolderOpen, History, KeyRound, LayoutDashboard, LogOut, Menu, Monitor, Moon, ScrollText, Settings, Shield, Sun, Users, UserCog, Wrench, X, Headphones,
+  Activity, Archive, Ban, BarChart3, ClipboardList, Cpu, Flag, FolderOpen, History, KeyRound, LayoutDashboard, LogOut, Mail, Menu, Monitor, Moon, ScrollText, Settings, Shield, Sun, Users, UserCog, Wrench, X, Headphones,
 } from 'lucide-react';
 import { api } from '../api/client';
 import type { MaintenanceStatus, ServerStatus } from '../api/types';
@@ -48,6 +48,14 @@ export function Layout() {
     refetchInterval: 10000,
   });
 
+  const unread = useQuery({
+    queryKey: ['messages', 'unread'],
+    queryFn: () => api.get<{ count: number }>('/api/messages/unread-count'),
+    enabled: can('messages.view'),
+    refetchInterval: 60000,
+    retry: false,
+  });
+
   const maintenance = useQuery({
     queryKey: ['maintenance'],
     queryFn: () => api.get<MaintenanceStatus>('/api/system/maintenance'),
@@ -57,7 +65,7 @@ export function Layout() {
 
   useEffect(() => { setOpen(false); }, [location.pathname]);
 
-  type NavItem = { to: string; label: string; icon: typeof Users; cap?: string; end?: boolean };
+  type NavItem = { to: string; label: string; icon: typeof Users; cap?: string; end?: boolean; badge?: number };
   const allGroups: { key: 'overview' | 'clients' | 'server' | 'admin'; items: NavItem[] }[] = [
     { key: 'overview', items: [
       { to: '/', label: t('nav.dashboard'), icon: LayoutDashboard, end: true },
@@ -67,8 +75,10 @@ export function Layout() {
       { to: '/clients', label: t('nav.clients'), icon: Users },
       { to: '/history', label: t('nav.history'), icon: History, cap: 'history.view' },
       { to: '/groups', label: t('nav.groups'), icon: Shield },
+      { to: '/permissions', label: t('nav.permissions'), icon: KeyRound },
       { to: '/bans', label: t('nav.bans'), icon: Ban },
       { to: '/complaints', label: t('nav.complaints'), icon: Flag },
+      { to: '/messages', label: t('nav.messages'), icon: Mail, cap: 'messages.view', badge: unread.data?.count || 0 },
     ] },
     { key: 'server', items: [
       { to: '/files', label: t('nav.files'), icon: FolderOpen, cap: 'files.view' },
@@ -112,7 +122,8 @@ export function Layout() {
                 className={({ isActive }) => clsx('flex items-center gap-3 rounded-lg px-3 py-1 text-sm font-medium transition', isActive ? 'bg-indigo-500/12 text-indigo-300' : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-100')}
               >
                 <item.icon className="h-4 w-4" />
-                {item.label}
+                <span className="flex-1">{item.label}</span>
+                {item.badge ? <span className="rounded-full bg-indigo-500 px-1.5 text-[10px] font-semibold text-white">{item.badge}</span> : null}
               </NavLink>
             ))}
           </div>

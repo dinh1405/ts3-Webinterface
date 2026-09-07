@@ -26,6 +26,7 @@ import complaintRoutes from './routes/complaints.js';
 import fileRoutes from './routes/files.js';
 import inviteRoutes from './routes/invites.js';
 import historyRoutes from './routes/history.js';
+import messageRoutes from './routes/messages.js';
 import setupRoutes from './routes/setup.js';
 import { reconfigureHooks } from './config.js';
 import { appVersion } from './version.js';
@@ -81,6 +82,7 @@ export function createApp() {
   api.use('/files', fileRoutes);
   api.use('/invites', inviteRoutes);
   api.use('/history', historyRoutes);
+  api.use('/messages', messageRoutes);
   api.use('/setup', setupRoutes);
   api.use(notFound);
   app.use('/api', api);

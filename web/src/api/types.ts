@@ -270,6 +270,7 @@ export interface Backup {
   createdBy: string;
   label: string;
   includeLogs: boolean;
+  snapshot: { serverName: string; version: number | null; size: number } | null;
   dbMethod: string | null;
   dbIntegrity: 'ok' | 'failed' | 'unchecked' | null;
   ts3Version: string | null;
@@ -285,6 +286,7 @@ export interface BackupSchedule {
   weekday: number;
   keep: number;
   includeLogs: boolean;
+  includeSnapshot?: boolean;
   timezone: string;
   cron: string | null;
   nextRun: string | null;
@@ -299,6 +301,7 @@ export interface Snapshot {
   serverName: string;
   version: number | null;
   size: number;
+  restoredFrom?: string | null;
 }
 
 export interface AuditEntry {
@@ -372,6 +375,16 @@ export interface GroupPermissionsResponse {
 }
 
 export type PermKind = 'servergroup' | 'channelgroup' | 'client' | 'channel' | 'channelclient';
+
+export interface PermResult { name: string; ok: boolean; error?: string; action?: string }
+export interface PermPreset { id: string; name: string; description: string; kind: PermKind | null; count: number; createdAt: string; createdBy: string; updatedAt: string }
+export interface PermPresetFull { id: string; name: string; description: string; kind: PermKind | null; perms: GroupPermission[]; createdAt: string; createdBy: string; updatedAt: string }
+
+export interface OfflineMessage { id: string; uid: string; nickname: string; subject: string; timestamp: number; read: boolean }
+export interface OfflineMessageDetail { id: string; uid: string; nickname: string; subject: string; message: string; timestamp: number }
+
+export interface AllFilesRow { cid: string; channelName: string; path: string; name: string; size: number; datetime: number }
+export interface AllFilesResponse { rows: AllFilesRow[]; count: number; totalSize: number; channels: number; errors: { cid: string; path: string; error: string }[]; truncated: boolean; durationMs: number; cachedAt: string }
 
 export interface PermOverviewEntry {
   name: string;

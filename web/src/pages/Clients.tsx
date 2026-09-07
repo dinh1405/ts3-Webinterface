@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { clsx } from 'clsx';
 import {
-  Ban, ChevronDown, ChevronRight, Database, Eye, FolderOpen, Hash, Headphones, History, KeyRound, Lock, LogOut, MessageSquare, Mic, MicOff, Moon, Move, Pencil, Plus, RefreshCw, Search, Shield, Star, Trash2, UserMinus, Users, VolumeX, X, Zap,
+  Ban, ChevronDown, ChevronRight, Database, Eye, FolderOpen, Hash, Headphones, History, KeyRound, Lock, LogOut, Mail, MessageSquare, Mic, MicOff, Moon, Move, Pencil, Plus, RefreshCw, Search, Shield, Star, Trash2, UserMinus, Users, VolumeX, X, Zap,
 } from 'lucide-react';
 import { api, errorMessage } from '../api/client';
 import type { Channel, Client, DbClient, GroupsResponse } from '../api/types';
@@ -255,6 +255,7 @@ function ClientModal({ client, onClose, channels, canWrite, canBan, canGroups }:
   const qc = useQueryClient();
   const { t } = useT();
   const canHistory = useAuth().can('history.view');
+  const canOfflineMsg = useAuth().can('messages.manage');
   const [mode, setMode] = useState<'info' | 'groups' | 'kick' | 'poke' | 'message' | 'move' | 'ban'>('info');
   const [text, setText] = useState('');
   const [scope, setScope] = useState<'server' | 'channel'>('server');
@@ -298,6 +299,7 @@ function ClientModal({ client, onClose, channels, canWrite, canBan, canGroups }:
         <div className="flex flex-wrap gap-2">
           <Button size="sm" icon={Shield} onClick={() => setMode('groups')}>{t('clients.serverGroups')}</Button>
           {canHistory && <Link to={`/history/${encodeURIComponent(c.uid)}`} className="btn btn-secondary btn-sm" onClick={close}><History className="h-3.5 w-3.5" /> {t('clients.profile')}</Link>}
+          {canOfflineMsg && <Link to={`/messages?compose=1&to=${encodeURIComponent(c.uid)}&nick=${encodeURIComponent(c.nickname)}`} className="btn btn-secondary btn-sm" onClick={close}><Mail className="h-3.5 w-3.5" /> {t('messages.offline')}</Link>}
           <Link to={`/permissions/client/${c.databaseId}`} className="btn btn-secondary btn-sm" onClick={close}><KeyRound className="h-3.5 w-3.5" /> {t('groups.permissions')}</Link>
           <Link to={`/permissions/channelclient/${c.cid}:${c.databaseId}`} className="btn btn-secondary btn-sm" onClick={close}><KeyRound className="h-3.5 w-3.5" /> {t('clients.permsInChannel')}</Link>
           <Link to={`/permissions/overview/${c.databaseId}/${c.cid}`} className="btn btn-secondary btn-sm" onClick={close}><Eye className="h-3.5 w-3.5" /> {t('perms.effective')}</Link>

@@ -21,6 +21,8 @@ export const CAPABILITY_GROUPS = [
       { key: 'complaints.manage' },
       { key: 'history.view' },
       { key: 'history.manage' },
+      { key: 'messages.view' },
+      { key: 'messages.manage' },
     ],
   },
   {
@@ -83,7 +85,7 @@ export const ROLE_DEFAULTS = {
  * Rechte, die nach der ersten Version hinzugekommen sind. Gespeicherte Rollenkonfigurationen
  * ohne `catalog`-Feld kennen sie nicht; dort greifen für sie die Standardwerte.
  */
-const ADDED_LATER = ['history.view', 'history.manage'];
+const ADDED_LATER = ['history.view', 'history.manage', 'messages.view', 'messages.manage'];
 
 export function isCapability(c) {
   return ALL.has(c);

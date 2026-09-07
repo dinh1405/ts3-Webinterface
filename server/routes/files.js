@@ -6,6 +6,7 @@ import { asyncHandler, HttpError, listOrEmpty } from '../lib/errors.js';
 import { requireCap } from '../lib/auth.js';
 import { ts3 } from '../lib/ts3.js';
 import { audit } from '../lib/audit.js';
+import { walkAllFiles } from '../lib/filewalk.js';
 
 const router = Router();
 const MAX_UPLOAD = 512 * 1024 * 1024;
@@ -39,6 +40,21 @@ function mimeOf(buf, name = '') {
   const ext = path.extname(name).toLowerCase();
   return { '.txt': 'text/plain', '.zip': 'application/zip', '.pdf': 'application/pdf' }[ext] || 'application/octet-stream';
 }
+
+/* ---------------- Alle Dateien aller Orte ---------------- */
+let allCache = null; // { at, data }
+let allPending = null; // laufender Promise (geteilt)
+
+router.get('/all', requireCap('files.view'), asyncHandler(async (req, res) => {
+  const refresh = req.query.refresh === '1';
+  if (!refresh && allCache && Date.now() - allCache.at < 30 * 1000) return res.json({ ...allCache.data, cachedAt: new Date(allCache.at).toISOString() });
+  if (!allPending) {
+    const ts = ts3.get();
+    allPending = walkAllFiles(ts).then((data) => { allCache = { at: Date.now(), data }; return data; }).finally(() => { allPending = null; });
+  }
+  const data = await allPending;
+  res.json({ ...data, cachedAt: new Date(allCache?.at || Date.now()).toISOString() });
+}));
 
 /* ---------------- Dateien ---------------- */
 router.get('/', requireCap('files.view'), asyncHandler(async (req, res) => {

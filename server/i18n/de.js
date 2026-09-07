@@ -349,4 +349,18 @@ export default {
   'notifyEvent.updateUnverified': 'TS3-Update nicht bestätigt',
   'notify.updateUnverified.title': 'TS3-Update auf {to} nicht bestätigt',
   'notify.updateUnverified.body': 'Der TeamSpeak-Server wurde von {from} auf {to} aktualisiert (ausgelöst von {user}), meldet danach aber Version „{seen}“ bzw. keine Verbindung. Bitte prüfen; die vorherige Version kann im Webinterface wiederhergestellt werden. Sicherung: {backup}',
+  // 1.4.0: Snapshot im Backup, Nachrichten, Rechte-Vorlagen
+  'backup.note.snapshotFailed': 'Snapshot konnte nicht aufgenommen werden ({error}) – das Backup enthält keinen snapshot.json.',
+  'backup.log.snapshotKept': 'Snapshot aus dem Backup als {id} abgelegt (Einspielen ist eine eigene Aktion unter Snapshots)',
+  'backup.log.snapshotSkipped': 'snapshot.json im Backup unlesbar: {error}',
+  'cap.messages.view': 'Offline-Nachrichten lesen',
+  'cap.messages.manage': 'Offline-Nachrichten senden und löschen',
+  'errors.invalidMessageId': 'Ungültige Nachrichten-ID',
+  'messages.notFound': 'Nachricht nicht gefunden',
+  'errors.invalidPresetId': 'Ungültige Vorlagen-ID',
+  'perms.presetNotFound': 'Vorlage nicht gefunden',
+  'perms.tooManyPresets': 'Höchstens {max} Vorlagen möglich',
+  'perms.presetNeedsPerms': 'Eine Vorlage braucht mindestens ein Recht (Liste oder Quellobjekt angeben)',
+  'perms.sameSubject': 'Quelle und Ziel sind dasselbe Objekt',
+  'perms.sourceEmpty': '„{name}“ hat keine gesetzten Rechte',
 };

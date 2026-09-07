@@ -55,8 +55,15 @@ export function EventsProvider({ children }: { children: ReactNode }) {
       if (ev.type === 'server.edit') qc.invalidateQueries({ queryKey: ['settings'] });
       if (ev.type === 'client.banned') qc.invalidateQueries({ queryKey: ['bans'] });
     });
+    // Beim Verlassen der Seite (auch in den Back/Forward-Cache) den Stream sofort schließen – sonst kann ein
+    // Browser nach mehreren Volllade-Navigationen sein Verbindungslimit (6 je Host) mit alten Streams belegen.
+    const onHide = () => es.close();
+    window.addEventListener('pagehide', onHide);
+    window.addEventListener('beforeunload', onHide);
     return () => {
       es.close();
+      window.removeEventListener('pagehide', onHide);
+      window.removeEventListener('beforeunload', onHide);
       if (invalidateTimer.current) window.clearTimeout(invalidateTimer.current);
       invalidateTimer.current = null;
     };

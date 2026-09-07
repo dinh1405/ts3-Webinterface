@@ -522,6 +522,11 @@ export async function getProfile(uid) {
   };
 }
 
+/** Zuletzt bekannter Nickname einer UID (für Nachrichten-Posteingang), '' wenn unbekannt. */
+export function nicknameForUid(uid) {
+  return identities.get(uid)?.nickname || '';
+}
+
 export function findIdentityByCldbid(cldbid) {
   for (const id of identities.values()) if (String(id.cldbid) === String(cldbid)) return id;
   return null;

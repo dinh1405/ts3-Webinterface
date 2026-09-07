@@ -220,7 +220,7 @@ async function copySqlite(dest, notes, methods = DB_METHODS) {
 /**
  * Erstellt ein ZIP-Backup des TS3-Servers.
  */
-export async function createBackup({ includeLogs = false, label = '', trigger = 'manual', username = 'system', parent = null, dbMethods = DB_METHODS } = {}) {
+export async function createBackup({ includeLogs = false, includeSnapshot = false, label = '', trigger = 'manual', username = 'system', parent = null, dbMethods = DB_METHODS } = {}) {
   if (running) throw new HttpError(409, 'backup.running');
   const dir = ts3Dir();
   const out = backupDir();
@@ -246,6 +246,8 @@ export async function createBackup({ includeLogs = false, label = '', trigger = 
       createdBy: username,
       label: String(label || '').slice(0, 80),
       includeLogs,
+      includeSnapshot,
+      snapshot: null,
       dbMethod,
       dbIntegrity,
       ts3Dir: dir,
@@ -258,6 +260,16 @@ export async function createBackup({ includeLogs = false, label = '', trigger = 
       info.ts3Version = `${v.version} (${v.platform}, Build ${v.build})`;
     } catch {
       // Server offline – kein Problem
+    }
+    let snapshotJson = null;
+    if (includeSnapshot) {
+      try {
+        const data = await fetchSnapshotData(ts3.get(), { username, id: `from_${id}` });
+        snapshotJson = JSON.stringify(data);
+        info.snapshot = { serverName: data.serverName, version: data.version, size: snapshotJson.length };
+      } catch (e) {
+        notes.push(ts('backup.note.snapshotFailed', { error: e.localized ? e.localized(systemLocale()) : (e.msg || e.message) }));
+      }
     }
 
     await new Promise((resolve, reject) => {
@@ -294,6 +306,10 @@ export async function createBackup({ includeLogs = false, label = '', trigger = 
       if (includeLogs && config.ts3.logDir && fs.existsSync(config.ts3.logDir)) {
         archive.directory(config.ts3.logDir, 'logs');
         contents.push('logs/');
+      }
+      if (snapshotJson) {
+        archive.append(snapshotJson, { name: 'snapshot.json' });
+        contents.push('snapshot.json');
       }
       archive.append(JSON.stringify(info, null, 2), { name: 'backup-info.json' });
       archive.finalize();
@@ -336,6 +352,7 @@ export async function listBackups() {
         createdBy: meta?.createdBy || '',
         label: meta?.label || '',
         includeLogs: Boolean(meta?.includeLogs),
+        snapshot: meta?.snapshot || null,
         dbMethod: meta?.dbMethod || null,
         dbIntegrity: meta?.dbIntegrity || null,
         ts3Version: meta?.ts3Version || null,
@@ -459,8 +476,19 @@ export async function restoreBackup(id, { username = 'system' } = {}) {
       ts3.connectSoon(3000);
       log(ts('backup.log.started'));
     }
+    let snapshotId = null;
+    if (fs.existsSync(path.join(tmp, 'snapshot.json'))) {
+      try {
+        const data = JSON.parse(await fsp.readFile(path.join(tmp, 'snapshot.json'), 'utf8'));
+        snapshotId = `restored_${id}`.slice(0, 120);
+        await fsp.writeFile(path.join(snapshotDir(), `${snapshotId}.json`), JSON.stringify({ ...data, id: snapshotId, restoredFrom: id, restoredAt: new Date().toISOString() }, null, 2));
+        log(ts('backup.log.snapshotKept', { id: snapshotId }));
+      } catch (e) {
+        log(ts('backup.log.snapshotSkipped', { error: e.message }));
+      }
+    }
     log(ts('backup.log.done'));
-    return { ok: true, steps, safetyBackup: safety.id, restartedServer: wasRunning };
+    return { ok: true, steps, safetyBackup: safety.id, restartedServer: wasRunning, snapshotId };
   } catch (e) {
     log(ts('backup.log.error', { error: e.localized ? e.localized(systemLocale()) : e.message }));
     e.steps = steps;
@@ -475,15 +503,14 @@ export async function restoreBackup(id, { username = 'system' } = {}) {
 
 /* ---------------- ServerQuery-Snapshots (virtueller Server) ---------------- */
 
-export async function createSnapshot({ username = 'system' } = {}) {
-  const ts = ts3.get();
+/** Holt einen Snapshot des aktiven virtuellen Servers (ohne ihn zu speichern). */
+export async function fetchSnapshotData(ts, { username = 'system', id = `snapshot_${stamp()}` } = {}) {
   const res = await ts.createSnapshot();
   let serverName = '';
   try {
     serverName = (await ts.serverInfo()).virtualserverName;
   } catch { /* ignore */ }
-  const id = `snapshot_${stamp()}`;
-  const data = {
+  return {
     id,
     createdAt: new Date().toISOString(),
     createdBy: username,
@@ -492,12 +519,16 @@ export async function createSnapshot({ username = 'system' } = {}) {
     salt: res.salt ?? null,
     snapshot: res.snapshot,
   };
-  await fsp.writeFile(path.join(snapshotDir(), `${id}.json`), JSON.stringify(data, null, 2));
+}
+
+export async function createSnapshot({ username = 'system' } = {}) {
+  const data = await fetchSnapshotData(ts3.get(), { username });
+  await fsp.writeFile(path.join(snapshotDir(), `${data.id}.json`), JSON.stringify(data, null, 2));
   return snapshotMeta(data, JSON.stringify(data).length);
 }
 
 function snapshotMeta(d, size) {
-  return { id: d.id, createdAt: d.createdAt, createdBy: d.createdBy, serverName: d.serverName, version: d.version, size };
+  return { id: d.id, createdAt: d.createdAt, createdBy: d.createdBy, serverName: d.serverName, version: d.version, size, restoredFrom: d.restoredFrom || null };
 }
 
 export async function listSnapshots() {

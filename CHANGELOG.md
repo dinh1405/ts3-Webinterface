@@ -5,6 +5,30 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.4.0] – 2026-09-07
+
+### Added
+- **Permission editor** (navigation → Permissions): compare two server groups, channel groups, channels or clients side by side
+  (added / removed / changed, differences only, transfer A → B as merge or replace), **copy from …** another object, **export**
+  the set permissions as JSON and **import** them with a preview (optionally removing permissions not in the file), and
+  **presets**: save the current permission set under a name, apply it to any object (merge/replace), rename, export, delete.
+  Replace operations on admin/query groups show a lock-out warning. New endpoints `POST /:kind/:id/remove`,
+  `POST /:kind/:id/copy-from`, `/api/permissions/presets`; bulk sets accept up to 1000 entries.
+- **Offline messages**: inbox of the query account (read/unread, delete) and compose to any client from the database –
+  the recipient does not have to be online. Entry points on the client profile and in the client dialog; unread badge in
+  the navigation. New capabilities `messages.view` / `messages.manage` (operators get both by default).
+- **Files → All files**: every file of every channel and of the server storage in one searchable, sortable list with
+  download, delete and "open in browser"; result cached for 30 s, refresh on demand, truncation and flood errors are reported.
+- **Snapshot in ZIP backups**: manual and scheduled backups can include a ServerQuery snapshot (`snapshot.json`,
+  channels/groups/permissions). Restoring such a backup stores the snapshot under Snapshots; deploying it stays a separate action.
+- ServerQuery simulator moved to `test/fixtures/fakequery.mjs` (module + CLI) with permissions, files, messages and
+  snapshots; tests for messages, permission editor, all-files list and snapshot backups.
+
+### Fixed
+- The live event stream is closed explicitly when a page is left (pagehide/beforeunload). Browsers could otherwise keep
+  old streams open across several full-page navigations and exhaust their per-host connection limit, leaving new
+  requests hanging until the tab was closed.
+
 ## [1.3.1] – 2026-09-06
 
 Reliability release based on a code review; no new features.

@@ -35,7 +35,7 @@ export async function runScheduledBackup(trigger = 'schedule') {
   const s = getSettings();
   let result;
   try {
-    const meta = await createBackup({ includeLogs: s.backupSchedule.includeLogs, trigger, username: 'system' });
+    const meta = await createBackup({ includeLogs: s.backupSchedule.includeLogs, includeSnapshot: Boolean(s.backupSchedule.includeSnapshot), trigger, username: 'system' });
     const deleted = await applyRetention(s.backupSchedule.keep);
     result = { at: new Date().toISOString(), ok: true, backupId: meta.id, size: meta.size, deleted, error: null };
     audit(null, 'backup.scheduled', { backupId: meta.id, size: meta.size, deleted }, true);

@@ -13,6 +13,7 @@ export const DEFAULT_SETTINGS = {
     weekday: 0, // 0 = Sonntag
     keep: 7,
     includeLogs: false,
+    includeSnapshot: false,
   },
   lastScheduledBackup: null,
   watchdog: {
