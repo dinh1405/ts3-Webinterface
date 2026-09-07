@@ -406,4 +406,13 @@ export default {
   'notify.updateAvailable.body': 'Installiert ist {current}, verfügbar ist {latest}. Update über System → Auto-Update oder von Hand. {url}',
   'autoupdate.component.ts3': 'TeamSpeak-Server',
   'autoupdate.component.webinterface': 'Webinterface',
+  // 1.6.1: Passkeys
+  'auth.passkeyChallengeExpired': 'Die Passkey-Anfrage ist abgelaufen – bitte erneut versuchen',
+  'auth.passkeyVerifyFailed': 'Der Passkey konnte nicht geprüft werden ({error})',
+  'auth.passkeyUnknown': 'Dieser Passkey ist keinem Konto zugeordnet',
+  'auth.passkeyNone': 'Für dieses Konto ist kein Passkey hinterlegt',
+  'auth.passkeyNotFound': 'Passkey nicht gefunden',
+  'auth.passkeyLimit': 'Höchstens {max} Passkeys je Konto',
+  'auth.passkeyInsecure': 'Passkeys brauchen HTTPS (oder localhost)',
+  'auth.passkeyIpHost': 'Passkeys funktionieren nicht über eine IP-Adresse – das Webinterface muss über einen Hostnamen aufgerufen werden',
 };

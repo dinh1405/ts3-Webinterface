@@ -17,8 +17,8 @@ const DUMMY_HASH = bcrypt.hashSync('dummy-password-for-timing', 12);
 
 export function sanitizeUser(u) {
   if (!u) return null;
-  const { passwordHash, tokenVersion, notifications, totp, ...rest } = u;
-  return { ...rest, language: u.language || null, capabilities: capabilitiesOf(u), totpEnabled: Boolean(totp?.enabled), recoveryCodesLeft: totp?.enabled ? (totp.recoveryCodes || []).length : 0 };
+  const { passwordHash, tokenVersion, notifications, totp, passkeys, ...rest } = u;
+  return { ...rest, language: u.language || null, capabilities: capabilitiesOf(u), totpEnabled: Boolean(totp?.enabled), recoveryCodesLeft: totp?.enabled ? (totp.recoveryCodes || []).length : 0, passkeyCount: (passkeys || []).length };
 }
 
 export const DEFAULT_USER_NOTIFICATIONS = {
@@ -245,4 +245,84 @@ export async function verifyUserTotp(id, code) {
 export function totpStatus(id) {
   const u = getUser(id);
   return { enabled: Boolean(u?.totp?.enabled), enabledAt: u?.totp?.enabledAt || null, recoveryCodesLeft: u?.totp?.enabled ? (u.totp.recoveryCodes || []).length : 0 };
+}
+
+/* =========================== Passkeys (WebAuthn) =========================== */
+
+const MAX_PASSKEYS = 10;
+const publicPasskey = ({ id, name, createdAt, lastUsedAt, deviceType, backedUp, transports }) => ({ id, name, createdAt, lastUsedAt, deviceType, backedUp, transports });
+
+/** Vollständige Einträge (mit öffentlichem Schlüssel und Zähler) – nur für lib/passkeys.js. */
+export function listPasskeysRaw(id) {
+  return [...(getUser(id)?.passkeys || [])];
+}
+
+export function listPasskeys(id) {
+  return listPasskeysRaw(id).map(publicPasskey);
+}
+
+export async function addPasskey(id, passkey) {
+  const user = getUser(id);
+  if (!user) throw new HttpError(404, 'users.notFound');
+  if ((user.passkeys || []).length >= MAX_PASSKEYS) throw new HttpError(400, 'auth.passkeyLimit', { max: MAX_PASSKEYS });
+  await store.update((d) => {
+    const u = d.users.find((x) => x.id === id);
+    u.passkeys = [...(u.passkeys || []).filter((p) => p.id !== passkey.id), passkey];
+    u.updatedAt = new Date().toISOString();
+  });
+  return publicPasskey(passkey);
+}
+
+export async function removePasskey(id, credentialId) {
+  const user = getUser(id);
+  if (!user) throw new HttpError(404, 'users.notFound');
+  if (!(user.passkeys || []).some((p) => p.id === credentialId)) throw new HttpError(404, 'auth.passkeyNotFound');
+  await store.update((d) => {
+    const u = d.users.find((x) => x.id === id);
+    u.passkeys = (u.passkeys || []).filter((p) => p.id !== credentialId);
+    u.updatedAt = new Date().toISOString();
+  });
+}
+
+export async function renamePasskey(id, credentialId, name) {
+  const user = getUser(id);
+  if (!user || !(user.passkeys || []).some((p) => p.id === credentialId)) throw new HttpError(404, 'auth.passkeyNotFound');
+  await store.update((d) => {
+    const p = d.users.find((x) => x.id === id).passkeys.find((x) => x.id === credentialId);
+    p.name = String(name || '').trim().slice(0, 60) || p.name;
+  });
+  return listPasskeys(id);
+}
+
+export async function clearPasskeys(id) {
+  if (!getUser(id)) throw new HttpError(404, 'users.notFound');
+  await store.update((d) => {
+    const u = d.users.find((x) => x.id === id);
+    delete u.passkeys;
+    u.updatedAt = new Date().toISOString();
+  });
+}
+
+/** Benutzer und Passkey zu einer Credential-ID (base64url) – für die Anmeldung ohne Benutzernamen. */
+export function findUserByCredential(credentialId) {
+  for (const u of store.get().users) {
+    const passkey = (u.passkeys || []).find((p) => p.id === credentialId);
+    if (passkey) return { user: u, passkey };
+  }
+  return null;
+}
+
+/** Zeitpunkt der letzten Anmeldung setzen (Passkey-Anmeldung läuft nicht über verifyLogin). */
+export async function touchLogin(id) {
+  await store.update((d) => {
+    const u = d.users.find((x) => x.id === id);
+    if (u) u.lastLoginAt = new Date().toISOString();
+  });
+}
+
+export async function bumpPasskey(id, credentialId, counter) {
+  await store.update((d) => {
+    const p = d.users.find((x) => x.id === id)?.passkeys?.find((x) => x.id === credentialId);
+    if (p) { p.counter = counter; p.lastUsedAt = new Date().toISOString(); }
+  });
 }

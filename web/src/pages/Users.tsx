@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Archive, Ban, Copy, Cpu, FolderOpen, KeyRound, Link2, Pencil, Plus, RotateCcw, Save, ScrollText, Server, Shield, ShieldCheck, ShieldOff, Trash2, UserCog, Users } from 'lucide-react';
+import { Archive, Ban, Copy, Cpu, Fingerprint, FolderOpen, KeyRound, Link2, Pencil, Plus, RotateCcw, Save, ScrollText, Server, Shield, ShieldCheck, ShieldOff, Trash2, UserCog, Users } from 'lucide-react';
 import { api, errorMessage } from '../api/client';
 import type { CapabilityGroup, Invite, Role, User } from '../api/types';
 import { useAuth } from '../lib/auth';
@@ -26,6 +26,12 @@ export default function UsersPage() {
   const [pw, setPw] = useState<User | null>(null);
   const [del, setDel] = useState<User | null>(null);
   const [totpReset, setTotpReset] = useState<User | null>(null);
+  const [passkeyReset, setPasskeyReset] = useState<User | null>(null);
+  const passkeyResetMut = useMutation({
+    mutationFn: (u: User) => api.post(`/api/users/${u.id}/passkeys/reset`),
+    onSuccess: () => { toast.success(t('users.passkeyResetDone')); setPasskeyReset(null); qc.invalidateQueries({ queryKey: ['users'] }); },
+    onError: (e) => toast.error(errorMessage(e)),
+  });
   const totpResetMut = useMutation({
     mutationFn: (u: User) => api.post(`/api/users/${u.id}/totp/reset`),
     onSuccess: () => { toast.success(t('users.totpResetDone')); setTotpReset(null); qc.invalidateQueries({ queryKey: ['users'] }); },
@@ -59,7 +65,7 @@ export default function UsersPage() {
                         {u.displayName && <p className="text-xs text-slate-500">@{u.username}</p>}
                       </td>
                       <td><Badge tone={ROLE_TONE[u.role]}>{t(`role.${u.role}`)}</Badge></td>
-                      <td><span className="flex flex-wrap gap-1"><Badge tone={u.active ? 'green' : 'slate'} dot>{u.active ? t('users.active') : t('users.disabled')}</Badge>{u.totpEnabled && <span title={t('account.totp.title')}><Badge tone="indigo"><ShieldCheck className="mr-1 inline h-3 w-3" />{t('users.totpOn')}</Badge></span>}</span></td>
+                      <td><span className="flex flex-wrap gap-1"><Badge tone={u.active ? 'green' : 'slate'} dot>{u.active ? t('users.active') : t('users.disabled')}</Badge>{u.totpEnabled && <span title={t('account.totp.title')}><Badge tone="indigo"><ShieldCheck className="mr-1 inline h-3 w-3" />{t('users.totpOn')}</Badge></span>}{(u.passkeyCount ?? 0) > 0 && <span title={t('account.passkey.title')}><Badge tone="indigo"><Fingerprint className="mr-1 inline h-3 w-3" />{u.passkeyCount}</Badge></span>}</span></td>
                       <td>{u.lastLoginAt ? <span title={formatDate(u.lastLoginAt, true)}>{formatRelative(u.lastLoginAt)}</span> : t('users.never')}</td>
                       <td>{formatDate(u.createdAt)}</td>
                       <td>
@@ -68,6 +74,7 @@ export default function UsersPage() {
                             <Button size="sm" variant="ghost" icon={Pencil} onClick={() => setEdit(u)}>{t('users.edit')}</Button>
                             <Button size="sm" variant="ghost" icon={KeyRound} onClick={() => setPw(u)}>{t('auth.password')}</Button>
                             {u.totpEnabled && <Button size="sm" variant="ghost" icon={ShieldOff} title={t('users.totpReset')} onClick={() => setTotpReset(u)} />}
+                            {(u.passkeyCount ?? 0) > 0 && <Button size="sm" variant="ghost" icon={Fingerprint} title={t('users.passkeyReset')} onClick={() => setPasskeyReset(u)} />}
                             <Button size="sm" variant="ghost" icon={Trash2} onClick={() => setDel(u)} disabled={u.id === me?.id} />
                           </> : <span className="text-xs text-slate-500">{t('users.higherRole')}</span>}
                         </div>
@@ -85,6 +92,7 @@ export default function UsersPage() {
       <CreateUserModal open={createOpen} onClose={() => setCreateOpen(false)} />
       <EditUserModal user={edit} onClose={() => setEdit(null)} isSelf={edit?.id === me?.id} />
       <PasswordModal user={pw} onClose={() => setPw(null)} />
+      <ConfirmDialog open={Boolean(passkeyReset)} onClose={() => setPasskeyReset(null)} onConfirm={() => passkeyReset && passkeyResetMut.mutate(passkeyReset)} loading={passkeyResetMut.isPending} title={t('users.passkeyResetTitle', { username: passkeyReset?.username ?? '' })} message={t('users.passkeyResetMsg')} confirmLabel={t('users.passkeyReset')} tone="warning" />
       <ConfirmDialog open={Boolean(totpReset)} onClose={() => setTotpReset(null)} onConfirm={() => totpReset && totpResetMut.mutate(totpReset)} loading={totpResetMut.isPending} title={t('users.totpResetTitle', { username: totpReset?.username ?? '' })} message={t('users.totpResetMsg')} confirmLabel={t('users.totpReset')} tone="warning" />
       <ConfirmDialog open={Boolean(del)} onClose={() => setDel(null)} onConfirm={() => del && remove.mutate(del.id)} loading={remove.isPending} title={t('users.deleteConfirm')} message={t('users.deleteMsg', { username: del?.username ?? '' })} confirmLabel={t('common.delete')} />
     </div>

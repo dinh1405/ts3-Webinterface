@@ -8,6 +8,8 @@ import { asyncHandler, HttpError } from '../lib/errors.js';
 import { issueSession, clearSession, requireAuth } from '../lib/auth.js';
 import { hasUsers, verifyLogin, sanitizeUser, getUser, setPassword, getUserNotifications, setUserNotifications, updateUser, startTotpSetup, enableTotp, disableTotp, regenerateRecoveryCodes, verifyUserTotp, totpStatus } from '../lib/users.js';
 import { passwordPolicy } from '../lib/passwords.js';
+import { listPasskeys, removePasskey, renamePasskey, listPasskeysRaw, touchLogin } from '../lib/users.js';
+import { relyingParty, beginRegistration, finishRegistration, beginAuthentication, finishAuthentication } from '../lib/passkeys.js';
 import { getSettings } from '../lib/settings.js';
 import { isLocale } from '../i18n/index.js';
 import { resolveLocale, systemLocale, userLocale } from '../lib/locale.js';
@@ -48,7 +50,8 @@ const credentials = z.object({
 });
 
 router.get('/setup-status', (req, res) => {
-  res.json({ needsSetup: needsSetup(), hasUsers: hasUsers(), language: systemLocale(), version: appVersion(), passwordPolicy: passwordPolicy() });
+  const rp = relyingParty(req);
+  res.json({ needsSetup: needsSetup(), hasUsers: hasUsers(), language: systemLocale(), version: appVersion(), passwordPolicy: passwordPolicy(), passkeys: { available: rp.available, reason: rp.reason } });
 });
 
 
@@ -62,7 +65,7 @@ router.post('/login', loginLimiter, asyncHandler(async (req, res) => {
   if (user.totp?.enabled) {
     // Zweiter Schritt nötig: kurzlebiges Ticket statt Sitzung
     audit({ ip: req.ip, user: { username } }, 'auth.login', { step: 'password-ok', mfa: 'pending' });
-    return res.json({ mfaRequired: true, ticket: mfaTicket(user), expiresInSec: MFA_TICKET_MINUTES * 60 });
+    return res.json({ mfaRequired: true, ticket: mfaTicket(user), expiresInSec: MFA_TICKET_MINUTES * 60, passkeyAvailable: relyingParty(req).available && listPasskeysRaw(user.id).length > 0 });
   }
   req.user = user;
   issueSession(req, res, user);
@@ -121,10 +124,83 @@ router.post('/change-password', requireAuth, asyncHandler(async (req, res) => {
   res.json({ ok: true });
 }));
 
-/* ---- Zweiter Faktor (TOTP) ---- */
 async function requirePassword(req, password) {
   if (!(await bcrypt.compare(String(password || ''), req.user.passwordHash))) throw new HttpError(400, 'auth.currentPasswordWrong');
 }
+
+/* ---- Passkeys: Anmeldung ---- */
+function userFromMfaTicket(ticket) {
+  let payload;
+  try {
+    payload = jwt.verify(ticket, config.jwtSecret);
+  } catch {
+    throw new HttpError(401, 'auth.mfaTicketExpired');
+  }
+  const user = payload.purpose === 'mfa' ? getUser(payload.sub) : null;
+  if (!user || !user.active || (user.tokenVersion || 0) !== (payload.tv || 0)) throw new HttpError(401, 'auth.mfaTicketExpired');
+  return user;
+}
+
+/** Optionen für die Passkey-Anmeldung: ohne Ticket beliebiger Benutzer (Discoverable), mit MFA-Ticket nur dessen Passkeys. */
+router.post('/passkey/options', loginLimiter, asyncHandler(async (req, res) => {
+  const { ticket } = z.object({ ticket: z.string().max(1000).optional() }).parse(req.body || {});
+  const user = ticket ? userFromMfaTicket(ticket) : null;
+  res.json(await beginAuthentication(req, { user }));
+}));
+
+router.post('/passkey/verify', loginLimiter, asyncHandler(async (req, res) => {
+  const { challengeId, response, ticket } = z.object({ challengeId: z.string().max(100), response: z.record(z.string(), z.unknown()), ticket: z.string().max(1000).optional() }).parse(req.body || {});
+  const expected = ticket ? userFromMfaTicket(ticket) : null;
+  let result;
+  try {
+    result = await finishAuthentication(req, { challengeId, response });
+  } catch (e) {
+    audit({ ip: req.ip, user: { username: expected?.username || '?' } }, 'auth.login', { reason: 'bad-passkey', error: e.message }, false);
+    throw e;
+  }
+  if (expected && expected.id !== result.user.id) throw new HttpError(401, 'auth.passkeyUnknown');
+  const user = result.user;
+  await touchLogin(user.id);
+  req.user = user;
+  issueSession(req, res, user);
+  audit(req, 'auth.login', { passkey: result.passkey.name, mfa: ticket ? 'passkey' : undefined, userVerified: result.userVerified });
+  res.json({ user: sanitizeUser(user), mfa: ticket ? 'passkey' : undefined, passkey: result.passkey.name });
+}));
+
+/* ---- Passkeys: Verwaltung (angemeldet) ---- */
+router.get('/passkeys', requireAuth, (req, res) => {
+  const rp = relyingParty(req);
+  res.json({ passkeys: listPasskeys(req.user.id), available: rp.available, reason: rp.reason, rpId: rp.rpId });
+});
+
+router.post('/passkeys/register/options', requireAuth, asyncHandler(async (req, res) => {
+  const { password } = z.object({ password: z.string().max(200) }).parse(req.body || {});
+  await requirePassword(req, password);
+  res.json(await beginRegistration(req, req.user));
+}));
+
+router.post('/passkeys/register/verify', requireAuth, asyncHandler(async (req, res) => {
+  const { challengeId, response, name } = z.object({ challengeId: z.string().max(100), response: z.record(z.string(), z.unknown()), name: z.string().max(60).optional() }).parse(req.body || {});
+  const pk = await finishRegistration(req, req.user, { challengeId, response, name });
+  audit(req, 'auth.passkey-add', { name: pk.name });
+  res.json({ ok: true, passkey: { id: pk.id, name: pk.name, createdAt: pk.createdAt }, passkeys: listPasskeys(req.user.id) });
+}));
+
+router.patch('/passkeys/:id', requireAuth, asyncHandler(async (req, res) => {
+  const { name } = z.object({ name: z.string().min(1).max(60) }).parse(req.body || {});
+  const passkeys = await renamePasskey(req.user.id, req.params.id, name);
+  res.json({ ok: true, passkeys });
+}));
+
+router.post('/passkeys/:id/delete', requireAuth, asyncHandler(async (req, res) => {
+  const { password } = z.object({ password: z.string().max(200) }).parse(req.body || {});
+  await requirePassword(req, password);
+  await removePasskey(req.user.id, req.params.id);
+  audit(req, 'auth.passkey-remove', {});
+  res.json({ ok: true, passkeys: listPasskeys(req.user.id) });
+}));
+
+/* ---- Zweiter Faktor (TOTP) ---- */
 
 router.get('/totp', requireAuth, (req, res) => {
   res.json(totpStatus(req.user.id));

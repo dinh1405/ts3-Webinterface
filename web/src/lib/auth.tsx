@@ -17,7 +17,11 @@ interface AuthState {
   /** Liefert den Benutzer oder – bei aktivem zweiten Faktor – ein Ticket für loginMfa(). */
   login: (username: string, password: string) => Promise<LoginResult>;
   loginMfa: (ticket: string, code: string) => Promise<LoginResult>;
+  /** Ergebnis einer Passkey-Anmeldung (lib/webauthn.ts) in den Zustand übernehmen. */
+  applyLogin: (res: LoginResult) => LoginResult;
   passwordMinLength: number;
+  /** Passkeys auf diesem Host möglich (HTTPS/localhost, kein IP-Aufruf)? */
+  passkeysAvailable: boolean;
   /** Persönliche Sprache setzen (null = Systemstandard). */
   setLanguage: (language: Locale | null) => Promise<void>;
   logout: () => Promise<void>;
@@ -33,6 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [systemLanguage, setSystemLanguage] = useState<Locale>('de');
   const [version, setVersion] = useState('');
   const [passwordMinLength, setPasswordMinLength] = useState(10);
+  const [passkeysAvailable, setPasskeysAvailable] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -42,6 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSystemLanguage(sys);
       setVersion(status.version || '');
       if (status.passwordPolicy?.minLength) setPasswordMinLength(status.passwordPolicy.minLength);
+      setPasskeysAvailable(Boolean(status.passkeys?.available));
       // Vor der Anmeldung: zuletzt genutzte Sprache, sonst Browsersprache, sonst Systemstandard
       if (!storedLocale()) setLocale(browserLocale() ?? sys);
       if (status.needsSetup) {
@@ -102,12 +108,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       can: (cap: string) => Boolean(user?.capabilities?.includes(cap)),
       login,
       loginMfa,
+      applyLogin: finishLogin,
       passwordMinLength,
+      passkeysAvailable,
       setLanguage,
       logout,
       refresh,
     }),
-    [user, loading, needsSetup, systemLanguage, version, passwordMinLength, login, loginMfa, setLanguage, logout, refresh],
+    [user, loading, needsSetup, systemLanguage, version, passwordMinLength, passkeysAvailable, login, loginMfa, finishLogin, setLanguage, logout, refresh],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

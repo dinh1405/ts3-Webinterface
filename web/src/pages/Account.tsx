@@ -10,6 +10,7 @@ import { LOCALES, useT, type Locale } from '../i18n';
 import { Badge, Button, Card, ErrorBox, Field, FullPageSpinner, KV, PageHeader } from '../components/ui';
 import { NotificationForm } from '../components/NotificationForm';
 import { TotpCard } from '../components/TotpCard';
+import { PasskeyCard } from '../components/PasskeyCard';
 
 export default function AccountPage() {
   const { user, passwordMinLength } = useAuth();
@@ -56,7 +57,8 @@ export default function AccountPage() {
             <Button type="submit" variant="primary" icon={KeyRound} loading={loading}>{t('account.changePassword')}</Button>
           </form>
         </Card>
-        <div className="lg:col-span-2"><TotpCard /></div>
+        <TotpCard />
+        <PasskeyCard />
       </div>
       <h2 className="mb-3 mt-8 flex items-center gap-2 text-lg font-semibold text-slate-50"><Bell className="h-5 w-5 text-indigo-400" /> {t('account.myNotifications')}</h2>
       <p className="mb-4 text-sm text-slate-400">{t('account.notificationsIntro')}</p>

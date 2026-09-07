@@ -13,10 +13,13 @@ export interface User {
   capabilities: string[];
   totpEnabled?: boolean;
   recoveryCodesLeft?: number;
+  passkeyCount?: number;
 }
 
+export interface PasskeyInfo { id: string; name: string; createdAt: string; lastUsedAt: string | null; deviceType: 'singleDevice' | 'multiDevice'; backedUp: boolean; transports: string[] }
+
 export interface TotpStatus { enabled: boolean; enabledAt: string | null; recoveryCodesLeft: number }
-export interface LoginResult { user?: User; mfaRequired?: boolean; ticket?: string; expiresInSec?: number; mfa?: 'totp' | 'recovery'; recoveryCodesLeft?: number }
+export interface LoginResult { user?: User; mfaRequired?: boolean; ticket?: string; expiresInSec?: number; passkeyAvailable?: boolean; mfa?: 'totp' | 'recovery' | 'passkey'; recoveryCodesLeft?: number; passkey?: string }
 
 export interface SetupStatus {
   needsSetup: boolean;
@@ -24,6 +27,7 @@ export interface SetupStatus {
   language: 'de' | 'en';
   version: string;
   passwordPolicy?: { minLength: number; maxLength: number };
+  passkeys?: { available: boolean; reason: 'insecure' | 'ipHost' | null };
 }
 
 export interface CapabilityGroup {

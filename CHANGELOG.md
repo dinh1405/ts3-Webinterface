@@ -5,6 +5,19 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.6.1] – 2026-09-07
+
+### Added
+- **Passkeys (WebAuthn/FIDO2)**: register under My account (Windows Hello, Touch ID, Android, security keys, phone via
+  QR), rename and remove (password confirmation), up to 10 per account. Sign in **without a password** via
+  "Sign in with passkey" (discoverable credentials) or use a passkey **instead of the TOTP code** in the second step.
+  Administrators can remove a user's passkeys (Users → fingerprint button). Password and recovery codes remain as
+  fallback. Passkeys are bound to the hostname and need HTTPS (or localhost); when the webinterface is opened via an IP
+  address or plain http, the buttons are hidden and the account page explains why. Built on `@simplewebauthn`
+  (pure JavaScript). Endpoints `/api/auth/passkey/options|verify`, `/api/auth/passkeys/*`, `POST /api/users/:id/passkeys/reset`.
+- Tests: full passkey flow with a simulated authenticator (`test/server/fake-authenticator.mjs`): registration,
+  discoverable sign-in, replay/clone/unknown-credential rejection, passkey as second factor, removal and admin reset.
+
 ## [1.6.0] – 2026-09-07
 
 ### Added

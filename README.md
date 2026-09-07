@@ -129,7 +129,7 @@ Everything can be changed later under **Settings → Connection & installation**
 | **Webinterface update** | System → Webinterface: version check against GitHub releases, update by click with automatic restart and rollback (see [Updating](#updating-rollback-uninstall)) |
 | **TS3 update** | Version check against the TeamSpeak version feed, update by click: download, SHA-256, extract, backup, stop, old files to `.previous-version/`, new files, start, **version verification** (success only when the running server reports the target version; otherwise *Verification failed* with rollback button); automatic rollback on error, manual rollback |
 | **Auto-update** | System → Auto-update: nightly schedule (daily/weekly) that updates the TeamSpeak server (optionally only when nobody is online) and the webinterface; run now; last run with a result per component; notifications |
-| **Users** | Login, roles `admin` / `operator` / `viewer`, **two-factor authentication (TOTP)** with recovery codes, language per user, password reset, enable/disable |
+| **Users** | Login, roles `admin` / `operator` / `viewer`, **two-factor authentication (TOTP)** with recovery codes, **passkeys** (sign in without a password or as second factor), language per user, password reset, enable/disable |
 | **Audit log** | Who did what and when (incl. failed logins) |
 
 Roles: **Administrator** (always all rights), **Operator** and **Viewer** with **freely configurable rights** (Users → Roles & rights):
@@ -302,6 +302,7 @@ Add the container's address to `query_ip_allowlist.txt` on the TeamSpeak host an
 
 - Passwords with bcrypt (cost 12) and one policy everywhere (≥ 10 characters, not the username, no common passwords); sessions as `httpOnly` cookies (`SameSite=Strict`, `Secure` behind HTTPS), tokens are invalidated on password/role changes.
 - Optional **second factor (TOTP)** per user with one-time recovery codes; administrators can reset it. Recommended for every admin account that is reachable from the internet.
+- **Passkeys** (WebAuthn): phishing-resistant sign-in without a password, or as replacement for the TOTP step. Requires HTTPS and a hostname (not an IP address); password and recovery codes stay as fallback.
 - CSRF protection via `X-Requested-With` header + SameSite cookie, login rate limit, Helmet/CSP.
 - Monitoring: `GET /api/health` returns `status: ok | degraded`; with `?strict=1` a disconnected ServerQuery yields HTTP 503.
 - Setup wizard protected by a one-time token; secrets only in `.env` and `data/config.json` (0600), never in the audit log or API responses.

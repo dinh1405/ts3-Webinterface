@@ -1,14 +1,15 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router';
-import { ArrowLeft, Headphones, LogIn, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Fingerprint, Headphones, LogIn, ShieldCheck } from 'lucide-react';
+import { isUserCancel, passkeysSupported, signInWithPasskey } from '../lib/webauthn';
 import { useAuth } from '../lib/auth';
 import { errorMessage } from '../api/client';
 import { useT } from '../i18n';
 import { Button, Field } from '../components/ui';
 
 export default function LoginPage() {
-  const { login, loginMfa } = useAuth();
+  const { login, loginMfa, applyLogin, passkeysAvailable } = useAuth();
   const { t } = useT();
   const navigate = useNavigate();
   const [username, setUsername] = useState('');
@@ -17,6 +18,23 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [ticket, setTicket] = useState<string | null>(null); // zweiter Schritt aktiv
   const [code, setCode] = useState('');
+  const [passkeyStep, setPasskeyStep] = useState(false); // Konto hat Passkeys → im zweiten Schritt anbieten
+  const [passkeyBusy, setPasskeyBusy] = useState(false);
+  const showPasskey = passkeysAvailable && passkeysSupported();
+
+  async function signInPasskey(mfaTicket?: string) {
+    setError(null);
+    setPasskeyBusy(true);
+    try {
+      const res = applyLogin(await signInWithPasskey(mfaTicket));
+      if (res.user) navigate('/', { replace: true });
+    } catch (err) {
+      if (!isUserCancel(err)) setError(errorMessage(err));
+      if ((err as { data?: { key?: string } })?.data?.key === 'auth.mfaTicketExpired') { setTicket(null); setPassword(''); }
+    } finally {
+      setPasskeyBusy(false);
+    }
+  }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -24,7 +42,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const res = await login(username.trim(), password);
-      if (res.mfaRequired && res.ticket) { setTicket(res.ticket); setCode(''); return; }
+      if (res.mfaRequired && res.ticket) { setTicket(res.ticket); setCode(''); setPasskeyStep(Boolean(res.passkeyAvailable)); return; }
       navigate('/', { replace: true });
     } catch (err) {
       setError(errorMessage(err));
@@ -61,6 +79,7 @@ export default function LoginPage() {
           </Field>
           {error && <p className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">{error}</p>}
           <Button type="submit" variant="primary" className="w-full" loading={loading} icon={ShieldCheck}>{t('auth.mfaVerify')}</Button>
+          {passkeyStep && showPasskey && <Button type="button" className="w-full" loading={passkeyBusy} icon={Fingerprint} onClick={() => signInPasskey(ticket)}>{t('auth.mfaUsePasskey')}</Button>}
           <button type="button" className="flex w-full items-center justify-center gap-1 text-xs text-slate-400 hover:text-slate-200" onClick={() => { setTicket(null); setError(null); }}><ArrowLeft className="h-3 w-3" /> {t('auth.mfaBack')}</button>
         </form>
       </AuthShell>
@@ -79,6 +98,11 @@ export default function LoginPage() {
         {error && <p className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">{error}</p>}
         <Button type="submit" variant="primary" className="w-full" loading={loading} icon={LogIn}>{t('auth.signIn')}</Button>
       </form>
+      {showPasskey && (
+        <div className="mt-4 border-t border-slate-800/60 pt-4">
+          <Button type="button" className="w-full" loading={passkeyBusy} icon={Fingerprint} onClick={() => signInPasskey()}>{t('auth.signInPasskey')}</Button>
+        </div>
+      )}
     </AuthShell>
   );
 }

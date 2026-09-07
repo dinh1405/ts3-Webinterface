@@ -129,7 +129,7 @@ Alles lässt sich später unter **Einstellungen → Verbindung & Installation** 
 | **Webinterface-Update** | System → Webinterface: Versionsprüfung gegen die GitHub-Releases, Update per Klick mit automatischem Neustart und Rollback (siehe [Update](#update-rollback-deinstallation)) |
 | **TS3-Update** | Versionsprüfung gegen den TeamSpeak-Versionsfeed, Update per Klick: Download, SHA-256, Entpacken, Sicherung, Stop, alte Dateien nach `.previous-version/`, neue Dateien, Start, Versionsbestätigung; automatischer Rollback bei Fehlern, manueller Rollback |
 | **Auto-Update** | System → Auto-Update: nächtlicher Zeitplan (täglich/wöchentlich), der den TeamSpeak-Server (wahlweise nur, wenn niemand online ist) und das Webinterface aktualisiert; sofort ausführen; letzter Lauf mit Ergebnis je Komponente; Benachrichtigungen |
-| **Benutzer** | Login, Rollen `admin` / `operator` / `viewer`, **Zwei-Faktor-Authentifizierung (TOTP)** mit Wiederherstellungscodes, Sprache pro Benutzer, Passwort zurücksetzen, aktivieren/deaktivieren |
+| **Benutzer** | Login, Rollen `admin` / `operator` / `viewer`, **Zwei-Faktor-Authentifizierung (TOTP)** mit Wiederherstellungscodes, **Passkeys** (Anmeldung ohne Passwort oder als zweiter Faktor), Sprache pro Benutzer, Passwort zurücksetzen, aktivieren/deaktivieren |
 | **Audit-Log** | Wer hat wann was gemacht (inkl. fehlgeschlagener Logins) |
 
 Rollen: **Administrator** (immer alle Rechte), **Operator** und **Beobachter** mit **frei konfigurierbaren Rechten** (Benutzer → Rollen & Rechte):
@@ -305,6 +305,7 @@ Die Adresse des Containers in `query_ip_allowlist.txt` auf dem TeamSpeak-Host ei
 
 - Passwörter mit bcrypt (Cost 12) und einer Regel für alle Wege (≥ 10 Zeichen, nicht der Benutzername, keine Allerweltspasswörter); Sitzungen als `httpOnly`-Cookie (`SameSite=Strict`, `Secure` hinter HTTPS), Token verfallen bei Passwort-/Rollenänderung.
 - Optionaler **zweiter Faktor (TOTP)** je Benutzer mit einmaligen Wiederherstellungscodes; Administratoren können ihn zurücksetzen. Empfohlen für jedes aus dem Internet erreichbare Admin-Konto.
+- **Passkeys** (WebAuthn): phishing-sichere Anmeldung ohne Passwort oder als Ersatz für den TOTP-Schritt. Braucht HTTPS und einen Hostnamen (keine IP-Adresse); Passwort und Wiederherstellungscodes bleiben als Rückfallebene.
 - CSRF-Schutz über `X-Requested-With`-Header + SameSite-Cookie, Login-Rate-Limit, Helmet/CSP.
 - Überwachung: `GET /api/health` liefert `status: ok | degraded`; mit `?strict=1` ergibt eine getrennte ServerQuery HTTP 503.
 - Einrichtungsassistent durch einmaliges Token geschützt; Geheimnisse nur in `.env` und `data/config.json` (0600), nie im Audit-Log oder in API-Antworten.

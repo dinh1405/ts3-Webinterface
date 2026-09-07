@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { asyncHandler, HttpError } from '../lib/errors.js';
 import { requireCap, requireAdmin } from '../lib/auth.js';
-import { listUsers, createUser, updateUser, setPassword, deleteUser, getUser, countActiveAdmins, ROLES, disableTotp } from '../lib/users.js';
+import { listUsers, createUser, updateUser, setPassword, deleteUser, getUser, countActiveAdmins, ROLES, disableTotp, clearPasskeys } from '../lib/users.js';
 import { capabilityCatalog, CAPABILITIES, ROLE_DEFAULTS, roleCapabilities, setRoleCapabilities, canAssignRole, canManageUser, ROLE_RANK } from '../lib/capabilities.js';
 import { resolveLocale } from '../lib/locale.js';
 import { audit } from '../lib/audit.js';
@@ -88,6 +88,16 @@ router.post('/:id/totp/reset', asyncHandler(async (req, res) => {
   if (!canManageUser(req.user, target)) throw new HttpError(403, 'users.rankPassword');
   await disableTotp(target.id);
   audit(req, 'user.totp-reset', { username: target.username });
+  res.json({ ok: true });
+}));
+
+/** Alle Passkeys eines Benutzers entfernen (Gerät verloren). */
+router.post('/:id/passkeys/reset', asyncHandler(async (req, res) => {
+  const target = getUser(req.params.id);
+  if (!target) throw new HttpError(404, 'users.notFound');
+  if (!canManageUser(req.user, target)) throw new HttpError(403, 'users.rankPassword');
+  await clearPasskeys(target.id);
+  audit(req, 'user.passkeys-reset', { username: target.username });
   res.json({ ok: true });
 }));
 
