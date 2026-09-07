@@ -5,6 +5,12 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.4.1] – 2026-09-07
+
+### Fixed
+- Backup schedule: the "Include ServerQuery snapshot" switch was reset to off when saving, because the setting was not sent
+  with the schedule. Saved schedules now keep it; a route test covers save and read-back.
+
 ## [1.4.0] – 2026-09-07
 
 ### Added

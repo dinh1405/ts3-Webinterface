@@ -161,7 +161,7 @@ function ScheduleCard() {
   const s = form ?? q.data?.schedule;
 
   const save = useMutation({
-    mutationFn: () => api.put<{ schedule: BackupSchedule }>('/api/backups/schedule', { enabled: s!.enabled, frequency: s!.frequency, time: s!.time, weekday: s!.weekday, keep: s!.keep, includeLogs: s!.includeLogs, timezone: s!.timezone }),
+    mutationFn: () => api.put<{ schedule: BackupSchedule }>('/api/backups/schedule', { enabled: s!.enabled, frequency: s!.frequency, time: s!.time, weekday: s!.weekday, keep: s!.keep, includeLogs: s!.includeLogs, includeSnapshot: Boolean(s!.includeSnapshot), timezone: s!.timezone }),
     onSuccess: () => { toast.success(t('backups.scheduleSaved')); setForm(null); qc.invalidateQueries({ queryKey: ['backups', 'schedule'] }); },
     onError: (e) => toast.error(errorMessage(e)),
   });
