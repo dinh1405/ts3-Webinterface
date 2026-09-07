@@ -5,6 +5,8 @@ import { config } from '../config.js';
 import { JsonStore } from './store.js';
 import { HttpError } from './errors.js';
 import { capabilitiesOf } from './capabilities.js';
+import { validatePassword as checkPolicy } from './passwords.js';
+import { generateSecret, otpauthUrl, verifyTotp, generateRecoveryCodes, hashRecoveryCode } from './totp.js';
 
 export const ROLES = ['admin', 'operator', 'viewer'];
 
@@ -15,9 +17,8 @@ const DUMMY_HASH = bcrypt.hashSync('dummy-password-for-timing', 12);
 
 export function sanitizeUser(u) {
   if (!u) return null;
-  // eslint-disable-next-line no-unused-vars
-  const { passwordHash, tokenVersion, notifications, ...rest } = u;
-  return { ...rest, language: u.language || null, capabilities: capabilitiesOf(u) };
+  const { passwordHash, tokenVersion, notifications, totp, ...rest } = u;
+  return { ...rest, language: u.language || null, capabilities: capabilitiesOf(u), totpEnabled: Boolean(totp?.enabled), recoveryCodesLeft: totp?.enabled ? (totp.recoveryCodes || []).length : 0 };
 }
 
 export const DEFAULT_USER_NOTIFICATIONS = {
@@ -79,17 +80,15 @@ function validateUsername(username) {
   }
 }
 
-export function validatePassword(password) {
-  if (typeof password !== 'string' || password.length < 8) {
-    throw new HttpError(400, 'users.passwordTooShort');
-  }
-  if (password.length > 200) throw new HttpError(400, 'users.passwordTooLong');
+/** Gemeinsame Passwortregel (server/lib/passwords.js). */
+export function validatePassword(password, opts = {}) {
+  checkPolicy(password, opts);
 }
 
 export async function createUser({ username, password, role = 'viewer', displayName = '', language = null }) {
   username = String(username || '').trim();
   validateUsername(username);
-  validatePassword(password);
+  validatePassword(password, { username });
   if (!ROLES.includes(role)) throw new HttpError(400, 'users.invalidRole');
   if (findByUsername(username)) throw new HttpError(409, 'users.taken');
   const now = new Date().toISOString();
@@ -130,9 +129,9 @@ export async function updateUser(id, patch) {
 }
 
 export async function setPassword(id, password) {
-  validatePassword(password);
   const user = getUser(id);
   if (!user) throw new HttpError(404, 'users.notFound');
+  validatePassword(password, { username: user.username });
   const hash = await bcrypt.hash(password, 12);
   await store.update((d) => {
     const u = d.users.find((x) => x.id === id);
@@ -164,4 +163,86 @@ export async function verifyLogin(username, password) {
     u.lastLoginAt = new Date().toISOString();
   });
   return getUser(user.id);
+}
+
+/* =========================== Zweiter Faktor (TOTP) =========================== */
+
+const pendingTotp = new Map(); // userId → { secret, createdAt }
+const PENDING_TTL_MS = 15 * 60 * 1000;
+export const TOTP_ISSUER = 'TS3 Webinterface';
+
+/** Einrichtung beginnen: neues Geheimnis (noch nicht aktiv), otpauth-URL für den QR-Code. */
+export function startTotpSetup(id) {
+  const user = getUser(id);
+  if (!user) throw new HttpError(404, 'users.notFound');
+  const secret = generateSecret();
+  pendingTotp.set(id, { secret, createdAt: Date.now() });
+  return { secret, otpauth: otpauthUrl({ issuer: TOTP_ISSUER, account: user.username, secret }) };
+}
+
+/** Einrichtung abschließen: Code gegen das vorgemerkte Geheimnis prüfen, Wiederherstellungscodes erzeugen (einmalig sichtbar). */
+export async function enableTotp(id, code) {
+  const p = pendingTotp.get(id);
+  if (!p || Date.now() - p.createdAt > PENDING_TTL_MS) throw new HttpError(400, 'auth.totpSetupExpired');
+  if (verifyTotp(p.secret, code) === null) throw new HttpError(400, 'auth.totpCodeInvalid');
+  const codes = generateRecoveryCodes(10);
+  await store.update((d) => {
+    const u = d.users.find((x) => x.id === id);
+    u.totp = { enabled: true, secret: p.secret, recoveryCodes: codes.map(hashRecoveryCode), enabledAt: new Date().toISOString(), lastCounter: null };
+    u.updatedAt = new Date().toISOString();
+  });
+  pendingTotp.delete(id);
+  return codes;
+}
+
+export async function disableTotp(id) {
+  if (!getUser(id)) throw new HttpError(404, 'users.notFound');
+  await store.update((d) => {
+    const u = d.users.find((x) => x.id === id);
+    delete u.totp;
+    u.updatedAt = new Date().toISOString();
+  });
+  pendingTotp.delete(id);
+}
+
+/** Neue Wiederherstellungscodes (alte verfallen). */
+export async function regenerateRecoveryCodes(id) {
+  const user = getUser(id);
+  if (!user?.totp?.enabled) throw new HttpError(400, 'auth.totpNotEnabled');
+  const codes = generateRecoveryCodes(10);
+  await store.update((d) => {
+    const u = d.users.find((x) => x.id === id);
+    u.totp.recoveryCodes = codes.map(hashRecoveryCode);
+  });
+  return codes;
+}
+
+/**
+ * Prüft einen TOTP-Code oder Wiederherstellungscode. Liefert 'totp' | 'recovery' | null.
+ * Ein TOTP-Zeitfenster gilt nur einmal (Replay-Schutz); ein Wiederherstellungscode wird verbraucht.
+ */
+export async function verifyUserTotp(id, code) {
+  const user = getUser(id);
+  if (!user?.totp?.enabled) return null;
+  const raw = String(code || '').trim();
+  const counter = verifyTotp(user.totp.secret, raw);
+  if (counter !== null) {
+    if (user.totp.lastCounter !== null && user.totp.lastCounter !== undefined && counter <= user.totp.lastCounter) return null;
+    await store.update((d) => { d.users.find((x) => x.id === id).totp.lastCounter = counter; });
+    return 'totp';
+  }
+  const h = hashRecoveryCode(raw);
+  if (raw.replace(/[^a-z0-9]/gi, '').length >= 10 && (user.totp.recoveryCodes || []).includes(h)) {
+    await store.update((d) => {
+      const u = d.users.find((x) => x.id === id);
+      u.totp.recoveryCodes = u.totp.recoveryCodes.filter((c) => c !== h);
+    });
+    return 'recovery';
+  }
+  return null;
+}
+
+export function totpStatus(id) {
+  const u = getUser(id);
+  return { enabled: Boolean(u?.totp?.enabled), enabledAt: u?.totp?.enabledAt || null, recoveryCodesLeft: u?.totp?.enabled ? (u.totp.recoveryCodes || []).length : 0 };
 }

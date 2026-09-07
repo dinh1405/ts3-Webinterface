@@ -32,7 +32,7 @@ router.post('/redeem', redeemLimiter, asyncHandler(async (req, res) => {
   const body = z.object({
     token: z.string().min(16).max(200),
     username: z.string().min(3).max(32),
-    password: z.string().min(8).max(200),
+    password: z.string().min(1).max(200),
     displayName: z.string().max(80).optional(),
   }).parse(req.body);
   const r = findValidInvite(body.token);

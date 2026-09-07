@@ -55,7 +55,7 @@ export default function RegisterPage() {
       <form onSubmit={onSubmit} className="space-y-4">
         <Field label={t('auth.username')} htmlFor="username" hint={t('auth.usernameHint')}><input id="username" className="input" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} required autoFocus /></Field>
         <Field label={t('auth.displayNameOptional')} htmlFor="displayName"><input id="displayName" className="input" value={displayName} onChange={(e) => setDisplayName(e.target.value)} /></Field>
-        <Field label={t('auth.password')} htmlFor="password" hint={t('auth.passwordHint')}><input id="password" type="password" className="input" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} /></Field>
+        <Field label={t('auth.password')} htmlFor="password" hint={t('auth.passwordHint')}><input id="password" type="password" className="input" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={10} /></Field>
         <Field label={t('auth.repeatPassword')} htmlFor="confirm"><input id="confirm" type="password" className="input" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required /></Field>
         {error && <p className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">{error}</p>}
         <Button type="submit" variant="primary" className="w-full" loading={loading} icon={UserPlus}>{t('register.create')}</Button>

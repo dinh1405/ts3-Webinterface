@@ -19,6 +19,7 @@ Node.js ≥ 20. No native dependencies – keep it that way (the release package
 
 ```bash
 npm run typecheck             # TypeScript (frontend)
+npm run lint                  # ESLint (server, scripts, tests, frontend)
 npm test                      # server tests (Vitest + Supertest; each test file gets a fresh data directory)
 node scripts/i18n-check.mjs   # de/en dictionaries in sync, no hard-coded German/English UI text
 npm run build                 # frontend build

@@ -14,6 +14,7 @@ import { appVersion } from './version.js';
 import { ts } from './lib/locale.js';
 import { notify, setServerNameProvider } from './lib/notify.js';
 import { confirmStartup } from './lib/selfupdate.js';
+import { startUpdateCheck } from './lib/updatecheck.js';
 
 const log = (msg) => console.log(`[${new Date().toISOString()}] ${msg}`);
 
@@ -59,6 +60,7 @@ applySchedule();
 startWatchdog();
 startStats();
 startHistory();
+startUpdateCheck();
 
 const app = createApp();
 const server = app.listen(config.port, config.host, () => {

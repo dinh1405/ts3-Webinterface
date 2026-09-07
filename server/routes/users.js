@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { asyncHandler, HttpError } from '../lib/errors.js';
 import { requireCap, requireAdmin } from '../lib/auth.js';
-import { listUsers, createUser, updateUser, setPassword, deleteUser, getUser, countActiveAdmins, ROLES } from '../lib/users.js';
+import { listUsers, createUser, updateUser, setPassword, deleteUser, getUser, countActiveAdmins, ROLES, disableTotp } from '../lib/users.js';
 import { capabilityCatalog, CAPABILITIES, ROLE_DEFAULTS, roleCapabilities, setRoleCapabilities, canAssignRole, canManageUser, ROLE_RANK } from '../lib/capabilities.js';
 import { resolveLocale } from '../lib/locale.js';
 import { audit } from '../lib/audit.js';
@@ -39,7 +39,7 @@ router.post('/roles/reset', requireAdmin, asyncHandler(async (req, res) => {
 router.post('/', asyncHandler(async (req, res) => {
   const body = z.object({
     username: z.string().min(3).max(32),
-    password: z.string().min(8).max(200),
+    password: z.string().min(1).max(200),
     role: z.enum(ROLES).default('viewer'),
     displayName: z.string().max(80).optional(),
   }).parse(req.body);
@@ -72,12 +72,22 @@ router.patch('/:id', asyncHandler(async (req, res) => {
 }));
 
 router.post('/:id/password', asyncHandler(async (req, res) => {
-  const { password } = z.object({ password: z.string().min(8).max(200) }).parse(req.body);
+  const { password } = z.object({ password: z.string().min(1).max(200) }).parse(req.body);
   const target = getUser(req.params.id);
   if (!target) throw new HttpError(404, 'users.notFound');
   if (!canManageUser(req.user, target)) throw new HttpError(403, 'users.rankPassword');
   await setPassword(target.id, password);
   audit(req, 'user.reset-password', { username: target.username });
+  res.json({ ok: true });
+}));
+
+/** Zweiten Faktor eines Benutzers entfernen (z. B. Gerät verloren, keine Wiederherstellungscodes mehr). */
+router.post('/:id/totp/reset', asyncHandler(async (req, res) => {
+  const target = getUser(req.params.id);
+  if (!target) throw new HttpError(404, 'users.notFound');
+  if (!canManageUser(req.user, target)) throw new HttpError(403, 'users.rankPassword');
+  await disableTotp(target.id);
+  audit(req, 'user.totp-reset', { username: target.username });
   res.json({ ok: true });
 }));
 

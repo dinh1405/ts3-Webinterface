@@ -57,8 +57,12 @@ export function createApp() {
   app.use(express.json({ limit: '30mb' }));
   app.use(cookieParser());
 
+  // status: ok | degraded (ServerQuery getrennt). ?strict=1 → 503 bei degraded, für externe Überwachung.
   app.get('/api/health', (req, res) => {
-    res.json({ ok: true, version: appVersion(), ts3Connected: ts3.connected, uptime: process.uptime(), time: new Date().toISOString() });
+    const status = ts3.connected ? 'ok' : 'degraded';
+    const body = { ok: true, status, version: appVersion(), ts3Connected: ts3.connected, queryError: ts3.connected ? null : (ts3.lastError || null), uptime: process.uptime(), time: new Date().toISOString() };
+    if (status !== 'ok' && ['1', 'true'].includes(String(req.query.strict))) return res.status(503).json({ ...body, ok: false });
+    res.json(body);
   });
 
   const api = express.Router();

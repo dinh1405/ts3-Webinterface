@@ -1,32 +1,70 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
+import { toast } from 'sonner';
 import { useNavigate } from 'react-router';
-import { Headphones, LogIn } from 'lucide-react';
+import { ArrowLeft, Headphones, LogIn, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { errorMessage } from '../api/client';
 import { useT } from '../i18n';
 import { Button, Field } from '../components/ui';
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, loginMfa } = useAuth();
   const { t } = useT();
   const navigate = useNavigate();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [ticket, setTicket] = useState<string | null>(null); // zweiter Schritt aktiv
+  const [code, setCode] = useState('');
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
     try {
-      await login(username.trim(), password);
+      const res = await login(username.trim(), password);
+      if (res.mfaRequired && res.ticket) { setTicket(res.ticket); setCode(''); return; }
       navigate('/', { replace: true });
     } catch (err) {
       setError(errorMessage(err));
     } finally {
       setLoading(false);
     }
+  }
+
+  async function onSubmitMfa(e: FormEvent) {
+    e.preventDefault();
+    if (!ticket) return;
+    setError(null);
+    setLoading(true);
+    try {
+      const res = await loginMfa(ticket, code.trim());
+      if (res.mfa === 'recovery') toast.warning(t('auth.mfaRecoveryUsed', { count: res.recoveryCodesLeft ?? 0 }));
+      navigate('/', { replace: true });
+    } catch (err) {
+      const msg = errorMessage(err);
+      setError(msg);
+      // Ticket abgelaufen → zurück zu Schritt 1
+      if ((err as { data?: { key?: string } })?.data?.key === 'auth.mfaTicketExpired') { setTicket(null); setPassword(''); }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (ticket) {
+    return (
+      <AuthShell title={t('auth.mfaTitle')} subtitle={t('auth.mfaSubtitle')}>
+        <form onSubmit={onSubmitMfa} className="space-y-4">
+          <Field label={t('auth.mfaCode')} htmlFor="mfa-code">
+            <input id="mfa-code" className="input font-mono text-lg tracking-[0.25em]" autoComplete="one-time-code" inputMode="text" autoFocus value={code} onChange={(e) => setCode(e.target.value)} required maxLength={20} />
+          </Field>
+          {error && <p className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">{error}</p>}
+          <Button type="submit" variant="primary" className="w-full" loading={loading} icon={ShieldCheck}>{t('auth.mfaVerify')}</Button>
+          <button type="button" className="flex w-full items-center justify-center gap-1 text-xs text-slate-400 hover:text-slate-200" onClick={() => { setTicket(null); setError(null); }}><ArrowLeft className="h-3 w-3" /> {t('auth.mfaBack')}</button>
+        </form>
+      </AuthShell>
+    );
   }
 
   return (

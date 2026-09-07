@@ -151,9 +151,9 @@ case $CMD in
     pw=${2:-}
     [[ -n $user ]] || die "Usage: ts3web reset-admin <username> [password]"
     if [[ -z $pw ]]; then
-      read -r -s -p "New password (min. 8 characters): " pw < /dev/tty; echo
+      read -r -s -p "New password (min. 10 characters): " pw < /dev/tty; echo
     fi
-    [[ ${#pw} -ge 8 ]] || die "Password too short."
+    [[ ${#pw} -ge 10 ]] || die "Password too short (min. 10 characters)."
     run_as "$APP_USER" bash -c "cd '$APP_DIR' && ENV_FILE='$APP_DIR/.env' ADMIN_USERNAME='$user' ADMIN_PASSWORD='$pw' node server/scripts/create-admin.js --role admin"
     ;;
 

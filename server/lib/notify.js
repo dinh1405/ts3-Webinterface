@@ -10,7 +10,7 @@ const HISTORY_MAX = 50;
 const state = { lastSent: null, lastError: null, history: [] };
 let serverNameProvider = () => 'TeamSpeak server';
 
-export const EVENT_KEYS = ['serverDown', 'serverRestarted', 'watchdogGaveUp', 'backupFailed', 'backupDone', 'updateDone', 'updateUnverified', 'updateFailed', 'selfUpdateDone', 'autoUpdateDone', 'autoUpdateSkipped', 'clientBanned', 'clientKicked', 'loginBlocked', 'queryLost'];
+export const EVENT_KEYS = ['serverDown', 'serverRestarted', 'watchdogGaveUp', 'backupFailed', 'backupDone', 'updateDone', 'updateUnverified', 'updateFailed', 'selfUpdateDone', 'autoUpdateDone', 'autoUpdateSkipped', 'updateAvailable', 'clientBanned', 'clientKicked', 'loginBlocked', 'queryLost'];
 
 /** Übersetzte Ereignisbezeichnungen (für die Einstellungsoberfläche). */
 export function eventLabels(locale) {
@@ -33,13 +33,14 @@ function render(event, params, locale) {
     p.webinterface = describeComponent(locale, r.skipped === 'busy' ? { skipped: 'busy' } : r.webinterface);
     p.trigger = t(locale, r.trigger === 'manual' ? 'autoupdate.trigger.manual' : 'autoupdate.trigger.schedule');
   }
+  if (event === 'updateAvailable') p.componentName = t(locale, p.component === 'ts3' ? 'autoupdate.component.ts3' : 'autoupdate.component.webinterface');
   if (event === 'selfUpdateDone') p.restartNote = t(locale, p.restart ? 'autoupdate.restart.systemd' : 'autoupdate.restart.manual');
   return { title: t(locale, `notify.${event}.title`, p), message: t(locale, `notify.${event}.body`, p) };
 }
 
 const EVENT_COLORS = {
   serverDown: 0xef4444, watchdogGaveUp: 0xef4444, backupFailed: 0xef4444, updateFailed: 0xef4444, updateUnverified: 0xf59e0b, loginBlocked: 0xf59e0b,
-  serverRestarted: 0x22c55e, backupDone: 0x22c55e, updateDone: 0x22c55e, selfUpdateDone: 0x22c55e, autoUpdateDone: 0x22c55e, autoUpdateSkipped: 0xf59e0b,
+  serverRestarted: 0x22c55e, backupDone: 0x22c55e, updateDone: 0x22c55e, selfUpdateDone: 0x22c55e, autoUpdateDone: 0x22c55e, autoUpdateSkipped: 0xf59e0b, updateAvailable: 0x6366f1,
   clientBanned: 0xf59e0b, clientKicked: 0xf59e0b, queryLost: 0xf59e0b,
 };
 

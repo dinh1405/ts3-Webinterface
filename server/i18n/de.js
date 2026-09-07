@@ -30,7 +30,7 @@ export default {
   // Benutzer
   'users.notFound': 'Benutzer nicht gefunden',
   'users.invalidUsername': 'Benutzername: 3–32 Zeichen, erlaubt sind Buchstaben, Ziffern, Punkt, Unterstrich, Bindestrich',
-  'users.passwordTooShort': 'Das Passwort muss mindestens 8 Zeichen lang sein',
+  'users.passwordTooShort': 'Das Passwort muss mindestens {min} Zeichen lang sein',
   'users.passwordTooLong': 'Passwort zu lang',
   'users.invalidRole': 'Ungültige Rolle',
   'users.taken': 'Benutzername ist bereits vergeben',
@@ -392,4 +392,18 @@ export default {
   'autoupdate.running': 'Ein automatischer Update-Lauf läuft bereits',
   'selfupdate.container': 'Im Container wird das Webinterface über ein neues Image aktualisiert',
   'update.noControl': 'Serversteuerung ist nicht konfiguriert – ohne Start/Stopp kann der TeamSpeak-Server nicht aktualisiert werden',
+  // 1.6.0: Zweiter Faktor, Passwortregel, Update verfügbar
+  'auth.mfaTicketExpired': 'Die Anmeldung ist abgelaufen – bitte erneut mit Benutzername und Passwort anmelden',
+  'auth.mfaCodeInvalid': 'Der Code ist ungültig oder wurde bereits verwendet',
+  'auth.totpSetupExpired': 'Die Einrichtung ist abgelaufen – bitte neu beginnen',
+  'auth.totpCodeInvalid': 'Der Code ist ungültig',
+  'auth.totpAlreadyEnabled': 'Der zweite Faktor ist bereits aktiv',
+  'auth.totpNotEnabled': 'Der zweite Faktor ist nicht aktiv',
+  'users.passwordUsername': 'Das Passwort darf den Benutzernamen nicht enthalten',
+  'users.passwordCommon': 'Dieses Passwort ist zu leicht zu erraten',
+  'notifyEvent.updateAvailable': 'Update verfügbar',
+  'notify.updateAvailable.title': '{componentName}: Version {latest} verfügbar',
+  'notify.updateAvailable.body': 'Installiert ist {current}, verfügbar ist {latest}. Update über System → Auto-Update oder von Hand. {url}',
+  'autoupdate.component.ts3': 'TeamSpeak-Server',
+  'autoupdate.component.webinterface': 'Webinterface',
 };

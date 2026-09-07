@@ -1,11 +1,13 @@
 import { Router } from 'express';
 import { rateLimit } from 'express-rate-limit';
 import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { config } from '../config.js';
 import { asyncHandler, HttpError } from '../lib/errors.js';
 import { issueSession, clearSession, requireAuth } from '../lib/auth.js';
-import { hasUsers, verifyLogin, sanitizeUser, getUser, setPassword, getUserNotifications, setUserNotifications, updateUser } from '../lib/users.js';
+import { hasUsers, verifyLogin, sanitizeUser, getUser, setPassword, getUserNotifications, setUserNotifications, updateUser, startTotpSetup, enableTotp, disableTotp, regenerateRecoveryCodes, verifyUserTotp, totpStatus } from '../lib/users.js';
+import { passwordPolicy } from '../lib/passwords.js';
 import { getSettings } from '../lib/settings.js';
 import { isLocale } from '../i18n/index.js';
 import { resolveLocale, systemLocale, userLocale } from '../lib/locale.js';
@@ -29,13 +31,24 @@ const loginLimiter = rateLimit({
   },
 });
 
+const mfaLimiter = rateLimit({
+  windowMs: config.loginRateLimit.windowMs,
+  limit: Math.max(config.loginRateLimit.max, 10),
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  handler: (req, res) => res.status(429).json({ error: new HttpError(429, 'auth.rateLimited').localized(resolveLocale(req)), key: 'auth.rateLimited' }),
+});
+const MFA_TICKET_MINUTES = 5;
+const mfaTicket = (user) => jwt.sign({ sub: user.id, tv: user.tokenVersion || 0, purpose: 'mfa' }, config.jwtSecret, { expiresIn: `${MFA_TICKET_MINUTES}m` });
+
 const credentials = z.object({
   username: z.string().min(1).max(64),
   password: z.string().min(1).max(200),
 });
 
 router.get('/setup-status', (req, res) => {
-  res.json({ needsSetup: needsSetup(), hasUsers: hasUsers(), language: systemLocale(), version: appVersion() });
+  res.json({ needsSetup: needsSetup(), hasUsers: hasUsers(), language: systemLocale(), version: appVersion(), passwordPolicy: passwordPolicy() });
 });
 
 
@@ -46,10 +59,37 @@ router.post('/login', loginLimiter, asyncHandler(async (req, res) => {
     audit({ ip: req.ip, user: { username } }, 'auth.login', { reason: 'bad-credentials' }, false);
     throw new HttpError(401, 'auth.badCredentials');
   }
+  if (user.totp?.enabled) {
+    // Zweiter Schritt nötig: kurzlebiges Ticket statt Sitzung
+    audit({ ip: req.ip, user: { username } }, 'auth.login', { step: 'password-ok', mfa: 'pending' });
+    return res.json({ mfaRequired: true, ticket: mfaTicket(user), expiresInSec: MFA_TICKET_MINUTES * 60 });
+  }
   req.user = user;
   issueSession(req, res, user);
   audit(req, 'auth.login', {});
   res.json({ user: sanitizeUser(user) });
+}));
+
+/** Zweiter Schritt: TOTP- oder Wiederherstellungscode gegen das Ticket aus /login. */
+router.post('/login/mfa', mfaLimiter, asyncHandler(async (req, res) => {
+  const { ticket, code } = z.object({ ticket: z.string().max(1000), code: z.string().min(1).max(64) }).parse(req.body);
+  let payload;
+  try {
+    payload = jwt.verify(ticket, config.jwtSecret);
+  } catch {
+    throw new HttpError(401, 'auth.mfaTicketExpired');
+  }
+  const user = payload.purpose === 'mfa' ? getUser(payload.sub) : null;
+  if (!user || !user.active || (user.tokenVersion || 0) !== (payload.tv || 0)) throw new HttpError(401, 'auth.mfaTicketExpired');
+  const how = await verifyUserTotp(user.id, code);
+  if (!how) {
+    audit({ ip: req.ip, user: { username: user.username } }, 'auth.login', { reason: 'bad-mfa-code' }, false);
+    throw new HttpError(401, 'auth.mfaCodeInvalid');
+  }
+  req.user = user;
+  issueSession(req, res, user);
+  audit(req, 'auth.login', { mfa: how });
+  res.json({ user: sanitizeUser(user), mfa: how, recoveryCodesLeft: totpStatus(user.id).recoveryCodesLeft });
 }));
 
 router.post('/logout', requireAuth, (req, res) => {
@@ -79,6 +119,49 @@ router.post('/change-password', requireAuth, asyncHandler(async (req, res) => {
   issueSession(req, res, user); // neue Sitzung, da alte durch tokenVersion ungültig wurde
   audit(req, 'auth.change-password', {});
   res.json({ ok: true });
+}));
+
+/* ---- Zweiter Faktor (TOTP) ---- */
+async function requirePassword(req, password) {
+  if (!(await bcrypt.compare(String(password || ''), req.user.passwordHash))) throw new HttpError(400, 'auth.currentPasswordWrong');
+}
+
+router.get('/totp', requireAuth, (req, res) => {
+  res.json(totpStatus(req.user.id));
+});
+
+/** Einrichtung starten (Passwort bestätigen) → Geheimnis + otpauth-URL; aktiv wird es erst mit /totp/enable. */
+router.post('/totp/setup', requireAuth, asyncHandler(async (req, res) => {
+  const { password } = z.object({ password: z.string().max(200) }).parse(req.body || {});
+  await requirePassword(req, password);
+  if (req.user.totp?.enabled) throw new HttpError(400, 'auth.totpAlreadyEnabled');
+  res.json(startTotpSetup(req.user.id));
+}));
+
+router.post('/totp/enable', requireAuth, asyncHandler(async (req, res) => {
+  const { code } = z.object({ code: z.string().min(6).max(10) }).parse(req.body || {});
+  const recoveryCodes = await enableTotp(req.user.id, code);
+  audit(req, 'auth.totp-enable', {});
+  res.json({ ok: true, recoveryCodes, status: totpStatus(req.user.id) });
+}));
+
+router.post('/totp/disable', requireAuth, asyncHandler(async (req, res) => {
+  const { password, code } = z.object({ password: z.string().max(200), code: z.string().min(1).max(64) }).parse(req.body || {});
+  await requirePassword(req, password);
+  if (!req.user.totp?.enabled) throw new HttpError(400, 'auth.totpNotEnabled');
+  if (!(await verifyUserTotp(req.user.id, code))) throw new HttpError(400, 'auth.totpCodeInvalid');
+  await disableTotp(req.user.id);
+  audit(req, 'auth.totp-disable', {});
+  res.json({ ok: true, status: totpStatus(req.user.id) });
+}));
+
+router.post('/totp/recovery-codes', requireAuth, asyncHandler(async (req, res) => {
+  const { password, code } = z.object({ password: z.string().max(200), code: z.string().min(1).max(64) }).parse(req.body || {});
+  await requirePassword(req, password);
+  if (!(await verifyUserTotp(req.user.id, code))) throw new HttpError(400, 'auth.totpCodeInvalid');
+  const recoveryCodes = await regenerateRecoveryCodes(req.user.id);
+  audit(req, 'auth.totp-recovery-codes', {});
+  res.json({ ok: true, recoveryCodes, status: totpStatus(req.user.id) });
 }));
 
 /* ---- persönliche Benachrichtigungen ---- */

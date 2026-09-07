@@ -18,7 +18,7 @@ export function browserTimezone(): string {
 
 export function StepLanguage({ language, timezone, onChange }: { language: Locale; timezone: string; onChange: (v: { language?: Locale; timezone?: string }) => void }) {
   const { t } = useT();
-  const zones = useMemo(timezoneOptions, []);
+  const zones = useMemo(() => timezoneOptions(), []);
   return (
     <div className="space-y-5">
       <p className="text-sm text-slate-400">{t('wizard.language.intro')}</p>

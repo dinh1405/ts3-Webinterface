@@ -12,7 +12,9 @@ export function StepStorage({ draft, update, state, mode }: StepProps) {
   const [check, setCheck] = useState<BackupDirTest | null>(null);
   const timer = useRef<number | null>(null);
   const test = useMutation({ mutationFn: (dir: string) => setupApi.testBackupDir(dir), onSuccess: setCheck, onError: () => setCheck(null) });
-  useEffect(() => { test.mutate(draft.backupDir); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  // Einmalige Prüfung beim Öffnen des Schritts
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { test.mutate(draft.backupDir); }, []);
   function setDir(v: string) {
     update({ backupDir: v });
     if (timer.current) window.clearTimeout(timer.current);

@@ -11,13 +11,19 @@ export interface User {
   lastLoginAt: string | null;
   language: 'de' | 'en' | null;
   capabilities: string[];
+  totpEnabled?: boolean;
+  recoveryCodesLeft?: number;
 }
+
+export interface TotpStatus { enabled: boolean; enabledAt: string | null; recoveryCodesLeft: number }
+export interface LoginResult { user?: User; mfaRequired?: boolean; ticket?: string; expiresInSec?: number; mfa?: 'totp' | 'recovery'; recoveryCodesLeft?: number }
 
 export interface SetupStatus {
   needsSetup: boolean;
   hasUsers: boolean;
   language: 'de' | 'en';
   version: string;
+  passwordPolicy?: { minLength: number; maxLength: number };
 }
 
 export interface CapabilityGroup {

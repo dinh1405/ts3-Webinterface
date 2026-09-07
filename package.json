@@ -1,6 +1,6 @@
 {
   "name": "ts3-webinterface",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "private": true,
   "description": "Web interface for managing a TeamSpeak 3 server (English/German)",
   "type": "module",
@@ -17,13 +17,19 @@
     "start": "node server/index.js",
     "create-admin": "node server/scripts/create-admin.js",
     "typecheck": "npm run typecheck -w web",
+    "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
     "dev:fake": "node test/fixtures/fakequery.mjs --port 10099 --password testpw"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "concurrently": "^9.1.0",
+    "eslint": "^10.10.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.12.0",
     "supertest": "^7.2.2",
+    "typescript-eslint": "^8.70.0",
     "vitest": "^4.1.11"
   }
 }

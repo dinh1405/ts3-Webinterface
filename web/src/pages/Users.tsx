@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Archive, Ban, Copy, Cpu, FolderOpen, KeyRound, Link2, Pencil, Plus, RotateCcw, Save, ScrollText, Server, Shield, Trash2, UserCog, Users } from 'lucide-react';
+import { Archive, Ban, Copy, Cpu, FolderOpen, KeyRound, Link2, Pencil, Plus, RotateCcw, Save, ScrollText, Server, Shield, ShieldCheck, ShieldOff, Trash2, UserCog, Users } from 'lucide-react';
 import { api, errorMessage } from '../api/client';
 import type { CapabilityGroup, Invite, Role, User } from '../api/types';
 import { useAuth } from '../lib/auth';
@@ -25,6 +25,12 @@ export default function UsersPage() {
   const [edit, setEdit] = useState<User | null>(null);
   const [pw, setPw] = useState<User | null>(null);
   const [del, setDel] = useState<User | null>(null);
+  const [totpReset, setTotpReset] = useState<User | null>(null);
+  const totpResetMut = useMutation({
+    mutationFn: (u: User) => api.post(`/api/users/${u.id}/totp/reset`),
+    onSuccess: () => { toast.success(t('users.totpResetDone')); setTotpReset(null); qc.invalidateQueries({ queryKey: ['users'] }); },
+    onError: (e) => toast.error(errorMessage(e)),
+  });
   const inv = () => qc.invalidateQueries({ queryKey: ['users'] });
 
   const remove = useMutation({ mutationFn: (id: string) => api.delete(`/api/users/${id}`), onSuccess: () => { toast.success(t('users.deleted')); setDel(null); inv(); }, onError: (e) => toast.error(errorMessage(e)) });
@@ -53,7 +59,7 @@ export default function UsersPage() {
                         {u.displayName && <p className="text-xs text-slate-500">@{u.username}</p>}
                       </td>
                       <td><Badge tone={ROLE_TONE[u.role]}>{t(`role.${u.role}`)}</Badge></td>
-                      <td><Badge tone={u.active ? 'green' : 'slate'} dot>{u.active ? t('users.active') : t('users.disabled')}</Badge></td>
+                      <td><span className="flex flex-wrap gap-1"><Badge tone={u.active ? 'green' : 'slate'} dot>{u.active ? t('users.active') : t('users.disabled')}</Badge>{u.totpEnabled && <span title={t('account.totp.title')}><Badge tone="indigo"><ShieldCheck className="mr-1 inline h-3 w-3" />{t('users.totpOn')}</Badge></span>}</span></td>
                       <td>{u.lastLoginAt ? <span title={formatDate(u.lastLoginAt, true)}>{formatRelative(u.lastLoginAt)}</span> : t('users.never')}</td>
                       <td>{formatDate(u.createdAt)}</td>
                       <td>
@@ -61,6 +67,7 @@ export default function UsersPage() {
                           {canManage(me?.role, u.role) ? <>
                             <Button size="sm" variant="ghost" icon={Pencil} onClick={() => setEdit(u)}>{t('users.edit')}</Button>
                             <Button size="sm" variant="ghost" icon={KeyRound} onClick={() => setPw(u)}>{t('auth.password')}</Button>
+                            {u.totpEnabled && <Button size="sm" variant="ghost" icon={ShieldOff} title={t('users.totpReset')} onClick={() => setTotpReset(u)} />}
                             <Button size="sm" variant="ghost" icon={Trash2} onClick={() => setDel(u)} disabled={u.id === me?.id} />
                           </> : <span className="text-xs text-slate-500">{t('users.higherRole')}</span>}
                         </div>
@@ -78,6 +85,7 @@ export default function UsersPage() {
       <CreateUserModal open={createOpen} onClose={() => setCreateOpen(false)} />
       <EditUserModal user={edit} onClose={() => setEdit(null)} isSelf={edit?.id === me?.id} />
       <PasswordModal user={pw} onClose={() => setPw(null)} />
+      <ConfirmDialog open={Boolean(totpReset)} onClose={() => setTotpReset(null)} onConfirm={() => totpReset && totpResetMut.mutate(totpReset)} loading={totpResetMut.isPending} title={t('users.totpResetTitle', { username: totpReset?.username ?? '' })} message={t('users.totpResetMsg')} confirmLabel={t('users.totpReset')} tone="warning" />
       <ConfirmDialog open={Boolean(del)} onClose={() => setDel(null)} onConfirm={() => del && remove.mutate(del.id)} loading={remove.isPending} title={t('users.deleteConfirm')} message={t('users.deleteMsg', { username: del?.username ?? '' })} confirmLabel={t('common.delete')} />
     </div>
   );
@@ -249,7 +257,7 @@ function CreateUserModal({ open, onClose }: { open: boolean; onClose: () => void
     onError: (e) => toast.error(errorMessage(e)),
   });
   return (
-    <Modal open={open} onClose={onClose} title={t('users.create')} size="sm" footer={<><Button variant="ghost" onClick={onClose}>{t('common.cancel')}</Button><Button variant="primary" loading={create.isPending} onClick={() => create.mutate()} disabled={!username || password.length < 8}>{t('files.create')}</Button></>}>
+    <Modal open={open} onClose={onClose} title={t('users.create')} size="sm" footer={<><Button variant="ghost" onClick={onClose}>{t('common.cancel')}</Button><Button variant="primary" loading={create.isPending} onClick={() => create.mutate()} disabled={!username || password.length < 10}>{t('files.create')}</Button></>}>
       <div className="space-y-4">
         <Field label={t('auth.username')} hint={t('auth.usernameHint')}><input className="input" value={username} onChange={(e) => setUsername(e.target.value)} autoFocus /></Field>
         <Field label={t('auth.displayNameOptional')}><input className="input" value={displayName} onChange={(e) => setDisplayName(e.target.value)} /></Field>
@@ -306,7 +314,7 @@ function PasswordModal({ user, onClose }: { user: User | null; onClose: () => vo
     onError: (e) => toast.error(errorMessage(e)),
   });
   return (
-    <Modal open={Boolean(user)} onClose={onClose} title={t('users.setPasswordTitle', { username: user?.username ?? '' })} size="sm" footer={<><Button variant="ghost" onClick={onClose}>{t('common.cancel')}</Button><Button variant="primary" loading={save.isPending} disabled={password.length < 8} onClick={() => save.mutate()}>{t('users.setPassword')}</Button></>}>
+    <Modal open={Boolean(user)} onClose={onClose} title={t('users.setPasswordTitle', { username: user?.username ?? '' })} size="sm" footer={<><Button variant="ghost" onClick={onClose}>{t('common.cancel')}</Button><Button variant="primary" loading={save.isPending} disabled={password.length < 10} onClick={() => save.mutate()}>{t('users.setPassword')}</Button></>}>
       <Field label={t('account.newPassword')} hint={t('users.setPasswordHint')}><input className="input" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} autoFocus /></Field>
     </Modal>
   );

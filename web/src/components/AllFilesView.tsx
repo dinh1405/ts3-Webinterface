@@ -50,7 +50,7 @@ export function AllFilesView() {
   const toggleSort = (k: SortKey) => { if (sort === k) setDir(dir === 'asc' ? 'desc' : 'asc'); else { setSort(k); setDir(k === 'size' || k === 'datetime' ? 'desc' : 'asc'); } };
   const openInBrowser = (r: AllFilesRow) => setParams({ tab: 'files', cid: r.cid, path: r.path });
   const location = (r: AllFilesRow) => (r.cid === '0' ? t('files.serverAvatars') : r.channelName);
-  const SortIcon = ({ k }: { k: SortKey }) => (sort === k ? (dir === 'asc' ? <ArrowUp className="ml-1 inline h-3 w-3" /> : <ArrowDown className="ml-1 inline h-3 w-3" />) : null);
+  const sortIcon = (k: SortKey) => (sort === k ? (dir === 'asc' ? <ArrowUp className="ml-1 inline h-3 w-3" /> : <ArrowDown className="ml-1 inline h-3 w-3" />) : null);
   const d = list.data;
 
   return (
@@ -77,11 +77,11 @@ export function AllFilesView() {
           <table className="table">
             <thead>
               <tr>
-                <th><button type="button" className="hover:text-slate-100" onClick={() => toggleSort('name')}>{t('common.name')}<SortIcon k="name" /></button></th>
-                <th><button type="button" className="hover:text-slate-100" onClick={() => toggleSort('channelName')}>{t('files.location')}<SortIcon k="channelName" /></button></th>
-                <th><button type="button" className="hover:text-slate-100" onClick={() => toggleSort('path')}>{t('files.all.path')}<SortIcon k="path" /></button></th>
-                <th className="w-28"><button type="button" className="hover:text-slate-100" onClick={() => toggleSort('size')}>{t('files.th.size')}<SortIcon k="size" /></button></th>
-                <th className="w-44"><button type="button" className="hover:text-slate-100" onClick={() => toggleSort('datetime')}>{t('files.th.modified')}<SortIcon k="datetime" /></button></th>
+                <th><button type="button" className="hover:text-slate-100" onClick={() => toggleSort('name')}>{t('common.name')}{sortIcon('name')}</button></th>
+                <th><button type="button" className="hover:text-slate-100" onClick={() => toggleSort('channelName')}>{t('files.location')}{sortIcon('channelName')}</button></th>
+                <th><button type="button" className="hover:text-slate-100" onClick={() => toggleSort('path')}>{t('files.all.path')}{sortIcon('path')}</button></th>
+                <th className="w-28"><button type="button" className="hover:text-slate-100" onClick={() => toggleSort('size')}>{t('files.th.size')}{sortIcon('size')}</button></th>
+                <th className="w-44"><button type="button" className="hover:text-slate-100" onClick={() => toggleSort('datetime')}>{t('files.th.modified')}{sortIcon('datetime')}</button></th>
                 <th className="w-32 text-right"></th>
               </tr>
             </thead>

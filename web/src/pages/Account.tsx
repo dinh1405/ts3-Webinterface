@@ -9,9 +9,10 @@ import { formatDate } from '../lib/format';
 import { LOCALES, useT, type Locale } from '../i18n';
 import { Badge, Button, Card, ErrorBox, Field, FullPageSpinner, KV, PageHeader } from '../components/ui';
 import { NotificationForm } from '../components/NotificationForm';
+import { TotpCard } from '../components/TotpCard';
 
 export default function AccountPage() {
-  const { user } = useAuth();
+  const { user, passwordMinLength } = useAuth();
   const { t, td } = useT();
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
@@ -50,11 +51,12 @@ export default function AccountPage() {
         <Card title={t('account.changePassword')}>
           <form onSubmit={onSubmit} className="space-y-4">
             <Field label={t('account.currentPassword')}><input className="input" type="password" autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} required /></Field>
-            <Field label={t('account.newPassword')} hint={t('auth.passwordHint')}><input className="input" type="password" autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} required minLength={8} /></Field>
+            <Field label={t('account.newPassword')} hint={t('auth.passwordHint')}><input className="input" type="password" autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} required minLength={passwordMinLength} /></Field>
             <Field label={t('account.repeatNewPassword')}><input className="input" type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required /></Field>
             <Button type="submit" variant="primary" icon={KeyRound} loading={loading}>{t('account.changePassword')}</Button>
           </form>
         </Card>
+        <div className="lg:col-span-2"><TotpCard /></div>
       </div>
       <h2 className="mb-3 mt-8 flex items-center gap-2 text-lg font-semibold text-slate-50"><Bell className="h-5 w-5 text-indigo-400" /> {t('account.myNotifications')}</h2>
       <p className="mb-4 text-sm text-slate-400">{t('account.notificationsIntro')}</p>

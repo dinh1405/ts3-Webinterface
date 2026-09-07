@@ -10,8 +10,8 @@ describe('offline messages', () => {
     const app = await createTestApp();
     api = await loginAgent(app, await makeAdmin());
     const { createUser } = await import('../../server/lib/users.js');
-    await createUser({ username: 'viewer', password: 'Viewer-Passwort-1234', role: 'viewer' });
-    viewer = await loginAgent(app, { username: 'viewer', password: 'Viewer-Passwort-1234' });
+    await createUser({ username: 'viewer', password: 'Nur-Lesen-Kennwort-2026', role: 'viewer' });
+    viewer = await loginAgent(app, { username: 'viewer', password: 'Nur-Lesen-Kennwort-2026' });
   });
   afterAll(async () => { await fq?.close(); });
 

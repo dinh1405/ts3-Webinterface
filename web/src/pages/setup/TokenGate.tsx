@@ -45,7 +45,6 @@ export function TokenGate({ children }: { children: ReactNode }) {
       setError(null);
       setStatus('ask');
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function onSubmit(e: FormEvent) {

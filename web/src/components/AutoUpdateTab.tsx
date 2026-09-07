@@ -151,7 +151,7 @@ export function AutoUpdateTab() {
         {!last ? <p className="text-sm text-slate-500">{t('system.auto.noRun')}</p> : (
           <div className="space-y-3 text-sm">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge tone={last.ok ? 'green' : 'red'}>{last.ok ? t('system.upd.success') : t('system.upd.failed')}</Badge>
+              {(() => { const acted = [last.ts3, last.webinterface].some((c) => c && c.ok !== undefined); return <Badge tone={!last.ok ? 'red' : acted ? 'green' : 'slate'}>{!last.ok ? t('system.upd.failed') : acted ? t('system.upd.success') : t('system.auto.nothingToDo')}</Badge>; })()}
               <span className="text-slate-300">{formatDate(last.at, true)}</span>
               <span className="text-xs text-slate-500">· {last.trigger === 'manual' ? t('system.auto.trigger.manual', { by: last.by }) : t('system.auto.trigger.schedule')}</span>
             </div>

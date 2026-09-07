@@ -26,6 +26,7 @@ export const DEFAULT_SETTINGS = {
     onlyWhenEmpty: true, // TS3 nur aktualisieren, wenn keine Clients verbunden sind
   },
   lastAutoUpdate: null,
+  updateNotified: { ts3: null, webinterface: null }, // zuletzt gemeldete verfügbare Version je Komponente
   watchdog: {
     enabled: false,
     intervalSec: 30,
@@ -50,6 +51,7 @@ export const DEFAULT_SETTINGS = {
       selfUpdateDone: true,
       autoUpdateDone: true,
       autoUpdateSkipped: false,
+      updateAvailable: true,
       clientBanned: true,
       clientKicked: false,
       loginBlocked: true,

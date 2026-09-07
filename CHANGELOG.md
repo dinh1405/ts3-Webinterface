@@ -5,6 +5,26 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.6.0] – 2026-09-07
+
+### Added
+- **Two-factor authentication (TOTP)** per user: set up under My account (QR code or key, confirmation code, ten one-time
+  recovery codes), sign-in in two steps with a short-lived ticket, replay protection per time window, disable / new recovery
+  codes with password + code, administrators can reset a user's second factor (Users → shield button). Works with Aegis,
+  Google Authenticator, Bitwarden, 1Password and similar apps. Endpoints `/api/auth/login/mfa`, `/api/auth/totp/*`,
+  `POST /api/users/:id/totp/reset`.
+- **Notification "update available"**: a daily check (5 minutes after start, then every 24 h) reports new TeamSpeak and
+  webinterface versions once per version – independent of the auto-update (`updateAvailable`, on by default).
+- `/api/health` reports `status: ok | degraded` (ServerQuery disconnected) and returns 503 with `?strict=1` for monitoring.
+- ESLint (flat config) for server, scripts, tests and frontend: `npm run lint`, also in CI and the release workflow.
+- Tests: authentication (password policy, sessions after password change, rate limit, complete second-factor flow, health).
+
+### Changed
+- **One password policy everywhere** (`server/lib/passwords.js`): at least 10 characters, not the username, no common
+  passwords or single repeated characters – in the wizard, user management, invitations, own password change and
+  `ts3web reset-admin`. Existing passwords stay valid. The rule is published via `/api/auth/setup-status` for the forms.
+- Auto-update: a run in which nothing had to be done is shown as "nothing to do" instead of "successful".
+
 ## [1.5.0] – 2026-09-07
 
 ### Added

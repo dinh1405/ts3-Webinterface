@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { api, UNAUTHORIZED_EVENT } from '../api/client';
-import type { SetupStatus, User } from '../api/types';
+import type { LoginResult, SetupStatus, User } from '../api/types';
 import { browserLocale, normalizeLocale, setLocale, storedLocale, type Locale } from '../i18n';
 
 interface AuthState {
@@ -14,7 +14,10 @@ interface AuthState {
   canWrite: boolean;
   /** Prüft ein Webinterface-Recht (z. B. 'bans.manage'). */
   can: (cap: string) => boolean;
-  login: (username: string, password: string) => Promise<User>;
+  /** Liefert den Benutzer oder – bei aktivem zweiten Faktor – ein Ticket für loginMfa(). */
+  login: (username: string, password: string) => Promise<LoginResult>;
+  loginMfa: (ticket: string, code: string) => Promise<LoginResult>;
+  passwordMinLength: number;
   /** Persönliche Sprache setzen (null = Systemstandard). */
   setLanguage: (language: Locale | null) => Promise<void>;
   logout: () => Promise<void>;
@@ -29,6 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [needsSetup, setNeedsSetup] = useState(false);
   const [systemLanguage, setSystemLanguage] = useState<Locale>('de');
   const [version, setVersion] = useState('');
+  const [passwordMinLength, setPasswordMinLength] = useState(10);
 
   const refresh = useCallback(async () => {
     try {
@@ -37,6 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const sys = normalizeLocale(status.language) ?? 'de';
       setSystemLanguage(sys);
       setVersion(status.version || '');
+      if (status.passwordPolicy?.minLength) setPasswordMinLength(status.passwordPolicy.minLength);
       // Vor der Anmeldung: zuletzt genutzte Sprache, sonst Browsersprache, sonst Systemstandard
       if (!storedLocale()) setLocale(browserLocale() ?? sys);
       if (status.needsSetup) {
@@ -61,12 +66,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
   }, [refresh]);
 
-  const login = useCallback(async (username: string, password: string) => {
-    const res = await api.post<{ user: User }>('/api/auth/login', { username, password });
-    setUser(res.user);
-    setLocale(normalizeLocale(res.user.language) ?? systemLanguage);
-    return res.user;
+  const finishLogin = useCallback((res: LoginResult) => {
+    if (res.user) {
+      setUser(res.user);
+      setLocale(normalizeLocale(res.user.language) ?? systemLanguage);
+    }
+    return res;
   }, [systemLanguage]);
+  const login = useCallback(async (username: string, password: string) => finishLogin(await api.post<LoginResult>('/api/auth/login', { username, password })), [finishLogin]);
+  const loginMfa = useCallback(async (ticket: string, code: string) => finishLogin(await api.post<LoginResult>('/api/auth/login/mfa', { ticket, code })), [finishLogin]);
 
   const setLanguage = useCallback(async (language: Locale | null) => {
     const res = await api.post<{ user: User; language: string }>('/api/auth/language', { language });
@@ -93,11 +101,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       canWrite: user?.role === 'admin' || user?.role === 'operator',
       can: (cap: string) => Boolean(user?.capabilities?.includes(cap)),
       login,
+      loginMfa,
+      passwordMinLength,
       setLanguage,
       logout,
       refresh,
     }),
-    [user, loading, needsSetup, systemLanguage, version, login, setLanguage, logout, refresh],
+    [user, loading, needsSetup, systemLanguage, version, passwordMinLength, login, loginMfa, setLanguage, logout, refresh],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
