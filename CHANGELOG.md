@@ -5,6 +5,11 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- Installer: a fresh install from GitHub failed with `curl: (3) URL using bad/illegal format` and printed the OS version
+  ("12 (bookworm)") as "Latest version". Sourcing `/etc/os-release` overwrote the installer's `VERSION` variable; only
+  `ID`/`ID_LIKE` are read now. `ts3web update` was not affected (it downloads the package itself).
+
 ## [1.4.1] – 2026-09-07
 
 ### Fixed

@@ -12,7 +12,7 @@
 # shellcheck disable=SC1090,SC1111
 set -euo pipefail
 
-INSTALLER_VERSION="1.1.0"
+INSTALLER_VERSION="1.4.2"
 REPO="${TS3WI_REPO:-dinh1405/ts3-Webinterface}"
 APP_DIR="/opt/ts3-webinterface"
 SERVICE="ts3-webinterface"
@@ -247,10 +247,13 @@ if [[ $YES -eq 0 && -z $TTY ]]; then die "$(t no_tty)"; fi
 PKG=""
 OS_ID="unknown"
 if [[ -r /etc/os-release ]]; then
+  # Nur ID/ID_LIKE übernehmen: os-release setzt auch VERSION und NAME und würde eigene Variablen überschreiben
+  # (VERSION="12 (bookworm)" hat die Release-Erkennung ausgehebelt).
   # shellcheck disable=SC1091
-  . /etc/os-release
-  OS_ID="${ID:-unknown}"
-  case "${ID:-} ${ID_LIKE:-}" in
+  OS_ID=$(. /etc/os-release 2>/dev/null; echo "${ID:-unknown}")
+  # shellcheck disable=SC1091
+  OS_LIKE=$(. /etc/os-release 2>/dev/null; echo "${ID_LIKE:-}")
+  case "$OS_ID $OS_LIKE" in
     *debian*|*ubuntu*) PKG=apt ;;
     *rhel*|*fedora*|*centos*|*rocky*|*alma*) PKG=dnf ;;
   esac
