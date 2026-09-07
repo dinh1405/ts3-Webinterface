@@ -10,7 +10,7 @@ const HISTORY_MAX = 50;
 const state = { lastSent: null, lastError: null, history: [] };
 let serverNameProvider = () => 'TeamSpeak server';
 
-export const EVENT_KEYS = ['serverDown', 'serverRestarted', 'watchdogGaveUp', 'backupFailed', 'backupDone', 'updateDone', 'updateUnverified', 'updateFailed', 'clientBanned', 'clientKicked', 'loginBlocked', 'queryLost'];
+export const EVENT_KEYS = ['serverDown', 'serverRestarted', 'watchdogGaveUp', 'backupFailed', 'backupDone', 'updateDone', 'updateUnverified', 'updateFailed', 'selfUpdateDone', 'autoUpdateDone', 'autoUpdateSkipped', 'clientBanned', 'clientKicked', 'loginBlocked', 'queryLost'];
 
 /** Übersetzte Ereignisbezeichnungen (für die Einstellungsoberfläche). */
 export function eventLabels(locale) {
@@ -26,13 +26,34 @@ function render(event, params, locale) {
     p.nickname = p.nickname || '?';
   }
   if (event === 'backupDone') p.deleted = p.deletedList ? t(locale, 'notify.backupDone.deleted', { list: p.deletedList }) : '';
+  if (event === 'autoUpdateDone' || event === 'autoUpdateSkipped') {
+    const r = p.result || {};
+    p.status = t(locale, r.ok ? 'autoupdate.status.ok' : 'autoupdate.status.failed');
+    p.ts3 = describeComponent(locale, r.skipped === 'busy' ? { skipped: 'busy' } : r.ts3);
+    p.webinterface = describeComponent(locale, r.skipped === 'busy' ? { skipped: 'busy' } : r.webinterface);
+    p.trigger = t(locale, r.trigger === 'manual' ? 'autoupdate.trigger.manual' : 'autoupdate.trigger.schedule');
+  }
+  if (event === 'selfUpdateDone') p.restartNote = t(locale, p.restart ? 'autoupdate.restart.systemd' : 'autoupdate.restart.manual');
   return { title: t(locale, `notify.${event}.title`, p), message: t(locale, `notify.${event}.body`, p) };
 }
 
 const EVENT_COLORS = {
   serverDown: 0xef4444, watchdogGaveUp: 0xef4444, backupFailed: 0xef4444, updateFailed: 0xef4444, updateUnverified: 0xf59e0b, loginBlocked: 0xf59e0b,
-  serverRestarted: 0x22c55e, backupDone: 0x22c55e, updateDone: 0x22c55e, clientBanned: 0xf59e0b, clientKicked: 0xf59e0b, queryLost: 0xf59e0b,
+  serverRestarted: 0x22c55e, backupDone: 0x22c55e, updateDone: 0x22c55e, selfUpdateDone: 0x22c55e, autoUpdateDone: 0x22c55e, autoUpdateSkipped: 0xf59e0b,
+  clientBanned: 0xf59e0b, clientKicked: 0xf59e0b, queryLost: 0xf59e0b,
 };
+
+/** Einzeiler für das Ergebnis einer Auto-Update-Komponente (TS3 bzw. Webinterface). */
+export function describeComponent(locale, c) {
+  if (!c) return t(locale, 'autoupdate.summary.disabled');
+  if (c.skipped) {
+    const key = ['disabled', 'noDir', 'upToDate', 'clientsOnline', 'notPossible', 'checkFailed', 'busy'].includes(c.skipped) ? c.skipped : 'notPossible';
+    const reasonKey = c.reason === 'noControl' ? 'update.noControl' : ['container', 'notLinux', 'notRelease', 'notWritable', 'npmMissing', 'tarMissing'].includes(c.reason) ? `selfupdate.${c.reason}` : null;
+    return t(locale, `autoupdate.summary.${key}`, { current: c.current || '?', count: c.count ?? 0, reason: reasonKey ? t(locale, reasonKey) : (c.reason || c.skipped), error: c.error || '?' });
+  }
+  if (c.ok) return t(locale, c.restart ? 'autoupdate.summary.updatedRestart' : 'autoupdate.summary.updated', { from: c.from || '?', to: c.to || '?' });
+  return t(locale, 'autoupdate.summary.failed', { from: c.from || '?', to: c.to || '?', error: c.error || '?' });
+}
 
 export function setServerNameProvider(fn) {
   serverNameProvider = fn;

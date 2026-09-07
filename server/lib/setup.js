@@ -371,6 +371,26 @@ export async function detectInstallations() {
 }
 
 /** Prüft ein TS3-Verzeichnis im Detail. */
+/** Eigene IPv4-Adressen (ohne Loopback) – im Container die Adresse, mit der das Webinterface beim ServerQuery ankommt. */
+export function ownAddresses() {
+  const out = [];
+  for (const list of Object.values(os.networkInterfaces())) for (const a of list || []) if (!a.internal && a.family === 'IPv4') out.push(a.address);
+  return out;
+}
+
+/** Passt eine Adresse zu einem Allowlist-Eintrag (IP oder IPv4-CIDR)? */
+export function ipInEntry(ip, entry) {
+  if (entry === ip) return true;
+  const m = entry.match(/^(\d+\.\d+\.\d+\.\d+)\/(\d{1,2})$/);
+  if (!m || !/^\d+\.\d+\.\d+\.\d+$/.test(ip)) return false;
+  const toInt = (s) => s.split('.').reduce((n, o) => ((n << 8) + (parseInt(o, 10) & 255)) >>> 0, 0);
+  const bits = parseInt(m[2], 10);
+  if (bits <= 0) return true;
+  if (bits > 32) return false;
+  const mask = bits === 32 ? 0xffffffff : ((0xffffffff << (32 - bits)) >>> 0);
+  return ((toInt(ip) & mask) >>> 0) === ((toInt(m[1]) & mask) >>> 0);
+}
+
 export async function inspectDir(dir) {
   if (!path.isAbsolute(dir)) throw new HttpError(400, 'setup.absolutePath');
   const checks = [];
@@ -386,7 +406,9 @@ export async function inspectDir(dir) {
   const owner = await ownerInfo(dir);
   const me = currentUser();
   const bin = path.join(dir, 'ts3server');
-  await check('binary', async () => ({ ok: await isFile(bin) && await access(bin, fs.constants.X_OK), detail: bin }));
+  // Datenverzeichnis eines Containers (z. B. /var/ts3server des offiziellen Images): Datenbank ohne Binary → Binary nicht Pflicht
+  const dataOnly = !(await isFile(bin)) && await isFile(path.join(dir, 'ts3server.sqlitedb'));
+  await check('binary', async () => ({ ok: await isFile(bin) && await access(bin, fs.constants.X_OK), detail: dataOnly ? 'dataOnly' : bin }), { required: !dataOnly });
   await check('startScript', async () => ({ ok: await isFile(path.join(dir, 'ts3server_startscript.sh')) }), { required: false });
   const ini = await parseIni(dir);
   await check('ini', async () => ({ ok: ini.exists, detail: ini.exists ? `query ${ini.queryPort}, voice ${ini.voicePort}, ${ini.dbPlugin}` : '' }), { required: false });
@@ -399,15 +421,18 @@ export async function inspectDir(dir) {
   try { pid = parseInt(await fsp.readFile(path.join(dir, 'ts3server.pid'), 'utf8'), 10) || null; } catch { /* keine pid */ }
   const running = pid ? pidAlive(pid) : false;
   await check('pid', async () => ({ ok: running, detail: pid ? String(pid) : '' }), { required: false });
-  let allowlistHasLocal = null;
+  // Erlaubt die Allowlist das Webinterface? Lokal 127.0.0.1/::1, sonst (Container/entfernt) eine eigene Adresse oder ein passendes Netz
+  const qh = config.ts3.query.host;
+  const wanted = !qh || ['127.0.0.1', 'localhost', '::1'].includes(qh) ? ['127.0.0.1', '::1'] : ownAddresses();
+  let allowlistOk = null;
   for (const name of ['query_ip_allowlist.txt', 'query_ip_whitelist.txt']) {
     try {
-      const text = await fsp.readFile(path.join(dir, name), 'utf8');
-      allowlistHasLocal = /^\s*(127\.0\.0\.1|::1)\s*$/m.test(text);
+      const entries = (await fsp.readFile(path.join(dir, name), 'utf8')).split(/\r?\n/).map((l) => l.trim()).filter((l) => l && !l.startsWith('#'));
+      allowlistOk = wanted.some((ip) => entries.some((e) => ipInEntry(ip, e)));
       break;
     } catch { /* nächste */ }
   }
-  await check('allowlist', async () => ({ ok: allowlistHasLocal !== false, detail: allowlistHasLocal === null ? 'missing' : '' }), { required: false });
+  await check('allowlist', async () => ({ ok: allowlistOk !== false, detail: allowlistOk === null ? 'missing' : wanted.join(', ') }), { required: false });
   await check('writable', async () => ({ ok: await access(dir, fs.constants.W_OK) }), { required: false });
   await check('licenseAccepted', async () => ({ ok: await isFile(path.join(dir, '.ts3server_license_accepted')) }), { required: false });
   let version = null;

@@ -16,6 +16,7 @@ import { appVersion } from '../version.js';
 import { compareVersions, downloadFile, sha256File, runCmd } from './update.js';
 import * as maintenance from './maintenance.js';
 import { audit } from './audit.js';
+import { notify } from './notify.js';
 import { ts } from './locale.js';
 
 export const REPO = process.env.TS3WI_REPO || 'dinh1405/ts3-Webinterface';
@@ -41,11 +42,14 @@ function which(bin) {
   return null;
 }
 const isRelease = () => fs.existsSync(VERSION_FILE);
+/** Im Container (Docker-Image) wird nicht in-place aktualisiert, sondern ein neues Image gezogen. */
+export const inContainer = () => process.env.TS3WI_CONTAINER === '1' || process.env.TS3WI_SELFUPDATE === '0' || fs.existsSync('/.dockerenv');
 const writable = (p) => { try { fs.accessSync(p, fs.constants.W_OK); return true; } catch { return false; } };
 
 /** Voraussetzungen für ein Selbst-Update. */
 export function selfUpdateInfo() {
   const reasons = [];
+  if (inContainer()) reasons.push('container');
   if (process.platform !== 'linux') reasons.push('notLinux');
   if (!isRelease()) reasons.push('notRelease');
   if (!writable(ROOT_DIR)) reasons.push('notWritable');
@@ -148,7 +152,7 @@ async function moveEntries(fromDir, toDir, names) {
  * Führt das Selbst-Update aus (asynchron, Fortschritt in selfUpdateSummary().running.steps).
  * Beendet den Prozess am Ende, damit systemd ihn mit der neuen Version neu startet.
  */
-export async function runSelfUpdate({ version, username = 'system', restart } = {}) {
+export async function runSelfUpdate({ version, username = 'system', restart, parent = null, notifyDone = true } = {}) {
   const info = selfUpdateInfo();
   if (!info.canUpdate) throw new HttpError(400, `selfupdate.${info.reasons[0]}`);
   if (state.running) throw new HttpError(409, 'selfupdate.running');
@@ -166,7 +170,7 @@ export async function runSelfUpdate({ version, username = 'system', restart } = 
   const doRestart = restart ?? info.restartMode === 'systemd';
 
   // Sperre bleibt bei erfolgreichem Update mit Neustart bis zum Prozessende gehalten
-  const lease = maintenance.acquire('self-update', { by: username, detail: release.version });
+  const lease = maintenance.acquire('self-update', { by: username, detail: release.version, parent });
   state.running = { version: release.version, from: info.current, startedAt: new Date().toISOString(), steps: [], by: username, restart: doRestart };
   let swapped = false;
   let movedOut = [];
@@ -222,6 +226,8 @@ export async function runSelfUpdate({ version, username = 'system', restart } = 
     state.lastResult = { ok: true, from: info.current, to: newVersion, finishedAt: new Date().toISOString(), steps: state.running.steps, restart: doRestart };
     await fsp.writeFile(LAST_FILE, JSON.stringify({ ...state.lastResult, steps: undefined }, null, 2)).catch(() => {});
     audit({ user: { username } }, 'selfupdate.run', { from: info.current, to: newVersion }, true);
+    // Benachrichtigung abwarten, bevor der Prozess endet
+    if (notifyDone) await notify('selfUpdateDone', { from: info.current, to: newVersion, user: username, restart: doRestart }).catch(() => {});
     if (doRestart) {
       log(ts('selfupdate.log.restarting'));
       setTimeout(() => process.exit(0), 1500).unref();

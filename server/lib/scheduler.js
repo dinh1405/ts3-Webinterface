@@ -1,11 +1,13 @@
 import * as cron from 'node-cron';
 import { getSettings, updateSettings } from './settings.js';
 import { createBackup, applyRetention } from './backup.js';
+import { runAutoUpdate } from './autoupdate.js';
 import { audit } from './audit.js';
 import { notify } from './notify.js';
 import { ts } from './locale.js';
 
-let task = null;
+/** Alle Cron-Tasks nach Namen: backup, autoupdate. */
+const tasks = new Map();
 let runningNow = false;
 
 export function scheduleToCron(s) {
@@ -16,17 +18,49 @@ export function scheduleToCron(s) {
   return `${minute} ${hour} * * *`;
 }
 
-export function applySchedule() {
-  if (task) {
-    try { task.destroy(); } catch { /* ignore */ }
-    task = null;
+export function clearTask(name) {
+  const t = tasks.get(name);
+  if (!t) return;
+  try { t.destroy(); } catch { /* ignore */ }
+  tasks.delete(name);
+}
+
+export function setTask(name, expr, fn, timezone) {
+  clearTask(name);
+  tasks.set(name, cron.schedule(expr, fn, { timezone: timezone || 'Europe/Berlin' }));
+  console.log(`[scheduler] ${name} schedule active: "${expr}" (${timezone})`);
+  return expr;
+}
+
+/** Nächste Ausführung eines Tasks (ISO) oder null. */
+export function taskNextRun(name) {
+  try {
+    return tasks.get(name)?.getNextRun?.()?.toISOString() ?? null;
+  } catch {
+    return null;
   }
+}
+
+export function applyBackupSchedule() {
+  clearTask('backup');
   const s = getSettings();
   if (!s.backupSchedule.enabled) return null;
-  const expr = scheduleToCron(s.backupSchedule);
-  task = cron.schedule(expr, () => runScheduledBackup(), { timezone: s.timezone || 'Europe/Berlin' });
-  console.log(`[scheduler] backup schedule active: "${expr}" (${s.timezone})`);
-  return expr;
+  return setTask('backup', scheduleToCron(s.backupSchedule), () => runScheduledBackup(), s.timezone);
+}
+
+export function applyAutoUpdateSchedule() {
+  clearTask('autoupdate');
+  const s = getSettings();
+  const a = s.autoUpdate;
+  if (!a?.enabled || (!a.ts3 && !a.webinterface)) return null;
+  return setTask('autoupdate', scheduleToCron(a), () => runAutoUpdate({ trigger: 'schedule' }).catch((e) => console.error('[scheduler] auto-update failed:', e.message)), s.timezone);
+}
+
+/** Alle Zeitpläne aus den Einstellungen (neu) anlegen. */
+export function applySchedule() {
+  const backup = applyBackupSchedule();
+  applyAutoUpdateSchedule();
+  return backup;
 }
 
 export async function runScheduledBackup(trigger = 'schedule') {
@@ -54,9 +88,10 @@ export async function runScheduledBackup(trigger = 'schedule') {
 
 export function getScheduleInfo() {
   const s = getSettings();
-  let nextRun = null;
-  try {
-    nextRun = task?.getNextRun?.()?.toISOString() ?? null;
-  } catch { /* ignore */ }
-  return { ...s.backupSchedule, timezone: s.timezone, cron: s.backupSchedule.enabled ? scheduleToCron(s.backupSchedule) : null, nextRun, lastRun: s.lastScheduledBackup, running: runningNow };
+  return { ...s.backupSchedule, timezone: s.timezone, cron: s.backupSchedule.enabled ? scheduleToCron(s.backupSchedule) : null, nextRun: taskNextRun('backup'), lastRun: s.lastScheduledBackup, running: runningNow };
+}
+
+/** Nur für Tests: alle Tasks entfernen, damit der Prozess enden kann. */
+export function _clearAll() {
+  for (const name of [...tasks.keys()]) clearTask(name);
 }

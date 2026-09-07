@@ -99,6 +99,7 @@ export async function installInfo({ dir, ports } = {}) {
   const isRoot = me.uid === 0;
   const tools = { tar: Boolean(which('tar')), bzip2: Boolean(which('bzip2')) };
   const reasons = [];
+  if (process.env.TS3WI_CONTAINER === '1') reasons.push('container');
   if (!IS_LINUX) reasons.push('notLinux');
   if (!ARCH_OK) reasons.push('arch');
   if (!tools.tar) reasons.push('tar');

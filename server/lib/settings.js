@@ -16,6 +16,16 @@ export const DEFAULT_SETTINGS = {
     includeSnapshot: false,
   },
   lastScheduledBackup: null,
+  autoUpdate: {
+    enabled: false,
+    frequency: 'daily', // daily | weekly
+    time: '04:30',
+    weekday: 0,
+    ts3: true, // TeamSpeak-Server aktualisieren
+    webinterface: true, // Webinterface aktualisieren (beendet den Prozess, systemd startet neu)
+    onlyWhenEmpty: true, // TS3 nur aktualisieren, wenn keine Clients verbunden sind
+  },
+  lastAutoUpdate: null,
   watchdog: {
     enabled: false,
     intervalSec: 30,
@@ -37,6 +47,9 @@ export const DEFAULT_SETTINGS = {
       updateDone: true,
       updateUnverified: true,
       updateFailed: true,
+      selfUpdateDone: true,
+      autoUpdateDone: true,
+      autoUpdateSkipped: false,
       clientBanned: true,
       clientKicked: false,
       loginBlocked: true,

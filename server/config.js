@@ -33,12 +33,25 @@ const envInt = (key) => {
 };
 
 /* ---------- nur per Umgebung ---------- */
+const dataDir = path.resolve(ROOT_DIR, env('DATA_DIR') || 'data');
 let jwtSecret = env('JWT_SECRET');
 if (!jwtSecret) {
-  jwtSecret = crypto.randomBytes(48).toString('hex');
-  console.warn('[config] JWT_SECRET is not set – using a random secret; all sessions expire on every restart.');
+  // Kein JWT_SECRET (z. B. Docker): Geheimnis einmal erzeugen und in <dataDir>/.jwt-secret ablegen (0600)
+  const secretFile = path.join(dataDir, '.jwt-secret');
+  try {
+    jwtSecret = fs.readFileSync(secretFile, 'utf8').trim();
+  } catch { /* noch nicht vorhanden */ }
+  if (!jwtSecret) {
+    jwtSecret = crypto.randomBytes(48).toString('hex');
+    try {
+      fs.mkdirSync(dataDir, { recursive: true });
+      fs.writeFileSync(secretFile, jwtSecret, { mode: 0o600 });
+      console.log(`[config] JWT_SECRET is not set – generated one in ${secretFile}`);
+    } catch (e) {
+      console.warn(`[config] JWT_SECRET is not set and ${secretFile} is not writable (${e.message}) – all sessions expire on every restart.`);
+    }
+  }
 }
-const dataDir = path.resolve(ROOT_DIR, env('DATA_DIR') || 'data');
 
 /* ---------- Standardwerte (Schicht 3) ---------- */
 export const CONFIG_DEFAULTS = Object.freeze({

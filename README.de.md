@@ -38,6 +38,7 @@ Alle Screenshots zeigen einen Demo-Server mit erfundenen Daten.
 - [Manuelle Installation](#manuelle-installation)
 - [Konfiguration](#konfiguration)
 - [Update, Rollback, Deinstallation](#update-rollback-deinstallation)
+- [Docker](#docker)
 - [Reverse-Proxy & HTTPS](#reverse-proxy--https)
 - [Steuerungsmodi](#steuerungsmodi)
 - [Backups](#backups)
@@ -127,6 +128,7 @@ Alles lässt sich später unter **Einstellungen → Verbindung & Installation** 
 | **Drag & Drop** | Clients in Kanäle ziehen, Kanäle umsortieren (oberer/unterer Rand) oder als Unterkanal einsortieren (Mitte) |
 | **Webinterface-Update** | System → Webinterface: Versionsprüfung gegen die GitHub-Releases, Update per Klick mit automatischem Neustart und Rollback (siehe [Update](#update-rollback-deinstallation)) |
 | **TS3-Update** | Versionsprüfung gegen den TeamSpeak-Versionsfeed, Update per Klick: Download, SHA-256, Entpacken, Sicherung, Stop, alte Dateien nach `.previous-version/`, neue Dateien, Start, Versionsbestätigung; automatischer Rollback bei Fehlern, manueller Rollback |
+| **Auto-Update** | System → Auto-Update: nächtlicher Zeitplan (täglich/wöchentlich), der den TeamSpeak-Server (wahlweise nur, wenn niemand online ist) und das Webinterface aktualisiert; sofort ausführen; letzter Lauf mit Ergebnis je Komponente; Benachrichtigungen |
 | **Benutzer** | Login, Rollen `admin` / `operator` / `viewer`, Sprache pro Benutzer, Passwort zurücksetzen, aktivieren/deaktivieren |
 | **Audit-Log** | Wer hat wann was gemacht (inkl. fehlgeschlagener Logins) |
 
@@ -136,7 +138,7 @@ Rollen: **Administrator** (immer alle Rechte), **Operator** und **Beobachter** m
 
 ## Voraussetzungen
 
-- Linux mit systemd (Debian 11+, Ubuntu 20.04+, RHEL 8+/Rocky/Alma/Fedora). Andere Systeme: [manuelle Installation](#manuelle-installation).
+- Linux mit systemd (Debian 11+, Ubuntu 20.04+, RHEL 8+/Rocky/Alma/Fedora). Andere Systeme: [manuelle Installation](#manuelle-installation) oder [Docker](#docker).
 - Node.js ≥ 20 (der Installer installiert 22 LTS).
 - TeamSpeak-3-Server mit aktiviertem ServerQuery (raw 10011 oder ssh 10022) und `serveradmin`-Passwort – oder der Assistent installiert einen.
 - Für Start/Stopp, Backups, Logs und Updates läuft das Webinterface **auf demselben Host** und **als derselbe Benutzer** wie der TS3-Server
@@ -222,6 +224,44 @@ sudo ts3web uninstall [--purge]    # entfernen (purge löscht auch Daten, Backup
 
 `ts3web -s <Dienst> …` spricht eine zweite, mit `--service-name` installierte Instanz an (z. B. ein Webinterface pro TeamSpeak-Server).
 
+**Automatisch:** System → Auto-Update führt einen nächtlichen Zeitplan aus, der erst den TeamSpeak-Server (mit Sicherung, wahlweise
+nur, wenn niemand online ist) und danach das Webinterface aktualisiert; das Ergebnis je Komponente wird angezeigt und als
+Benachrichtigung verschickt.
+
+## Docker
+
+Image `ghcr.io/dinh1405/ts3-webinterface` (Tags `latest`, `1.5`, `1.5.0`; linux/amd64 und arm64). Empfohlen ist der Betrieb neben
+dem offiziellen TeamSpeak-Image mit [`docker-compose.yml`](docker-compose.yml):
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/dinh1405/ts3-Webinterface/main/docker-compose.yml
+docker compose up -d
+docker compose logs webinterface | grep "setup token"   # dann http://<host>:8088/setup öffnen
+docker compose logs teamspeak | grep "password="         # serveradmin-Passwort für den Assistenten (Host „teamspeak“, Port 10011)
+```
+
+Alternativ `TS3_SERVERADMIN_PASSWORD=…` **vor** dem ersten Start in eine `.env` neben der Compose-Datei schreiben – dann nutzen beide
+Container es und der Assistent fragt nur noch nach dem Admin-Konto. Das Datenverzeichnis des TeamSpeak-Servers ist im Webinterface
+unter `/ts3` eingebunden (beide Images nutzen UID 9987), deshalb funktionieren Backups (konsistente SQLite-Kopie über
+`node:sqlite`), Log-Anzeige und Wiederherstellung wie gewohnt. Die Query-Allowlist für das Compose-Netz erreicht den TeamSpeak-
+Container als Compose-Config; 9987/udp und 30033 sind veröffentlicht, der Query-Port bleibt intern. Daten liegen in den Volumes
+`ts3wi-data` (`/data`, inkl. erzeugtem JWT-Geheimnis) und `ts3wi-backups`.
+
+Unterschiede im Container: Das Webinterface aktualisiert sich nicht selbst und das TS3-Binary wird nicht aus dem Browser
+aktualisiert – stattdessen `docker compose pull && docker compose up -d`; der Assistent kann keinen TeamSpeak-Server installieren;
+die Serversteuerung ist standardmäßig aus (`TS3_CONTROL_MODE=none`), Watchdog und Start/Stopp stehen also nicht zur Verfügung.
+Der auskommentierte Block in der Compose-Datei zeigt, wie man dem Webinterface den Docker-Socket gibt, falls man sie braucht
+(das entspricht Root-Rechten auf dem Host).
+
+Allein gegen einen vorhandenen TeamSpeak-Server:
+
+```bash
+docker run -d --name ts3-webinterface -p 8088:8088 -v ts3wi-data:/data -v ts3wi-backups:/backups \
+  -e TS3_QUERY_HOST=<ts3-host> -e PUBLIC_URL=https://ts.example.org ghcr.io/dinh1405/ts3-webinterface:latest
+```
+
+Die Adresse des Containers in `query_ip_allowlist.txt` auf dem TeamSpeak-Host eintragen; hinter einem Reverse-Proxy `TRUST_PROXY=1` setzen.
+
 ## Reverse-Proxy & HTTPS
 
 - **Installer mit `--nginx ts.example.org`** (oder die interaktive Frage): schreibt eine nginx-Site aus
@@ -276,7 +316,8 @@ npm install
 cp .env.example .env         # HOST/PORT/JWT_SECRET; TeamSpeak-Einstellungen über den Assistenten
 npm run dev                  # API auf :8088, Vite-Dev-Server auf :5173 (Proxy → API)
 npm run typecheck            # TypeScript
-npm test                     # Servertests (Vitest + Supertest)
+npm test                     # Servertests (Vitest + Supertest, inkl. Ende-zu-Ende gegen den Simulator) und Frontend-Unit-Tests
+npm run dev:fake             # ServerQuery-Simulator auf 127.0.0.1:10099 (Passwort testpw) für Assistent und Handtests
 node scripts/i18n-check.mjs  # Wörterbuch-Abgleich (de/en) und unübersetzte Texte
 node scripts/build-release.mjs   # Release-Paket in release/
 ```
@@ -293,6 +334,8 @@ server/            Express 5 (ESM), ts3-nodejs-library (ServerQuery raw/ssh), JW
 web/               React 19 + Vite + Tailwind CSS 4 + TanStack Query, Wörterbücher in src/i18n/
 deploy/            install.sh, ts3web, systemd-/nginx-Vorlagen, Plesk-Hinweise
 scripts/           i18n-check.mjs, build-release.mjs
+test/              Vitest: Servertests, fixtures/fakequery.mjs (ServerQuery-Simulator)
+Dockerfile, docker-compose.yml   Container-Image und Compose-Setup mit dem offiziellen teamspeak-Image
 ```
 
 Es gibt bewusst **keine nativen Abhängigkeiten** (kein Kompilieren auf dem Server). Siehe [CONTRIBUTING.md](CONTRIBUTING.md).

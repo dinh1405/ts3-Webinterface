@@ -1,0 +1,84 @@
+# TS3 Webinterface + TeamSpeak 3 server
+#
+#   docker compose up -d
+#   docker compose logs webinterface | grep -i setup     # setup token for the wizard
+#   → open http://<host>:8088/setup
+#
+# First start: the TeamSpeak container prints its serveradmin password once
+# (docker compose logs teamspeak | grep -A3 "I M P O R T A N T"). Enter it in the wizard
+# (ServerQuery host "teamspeak", port 10011) – or set TS3_SERVERADMIN_PASSWORD in a .env file
+# next to this compose file BEFORE the first start; then both containers use it right away.
+#
+# Update: docker compose pull && docker compose up -d
+# (inside the container the webinterface does not update itself and does not update the TS3 binary –
+#  both are done by pulling newer images; process control of the TS3 container is off by default, see below)
+
+services:
+  teamspeak:
+    image: teamspeak:3.13
+    restart: unless-stopped
+    environment:
+      TS3SERVER_LICENSE: accept
+      # allowlist below: the webinterface talks to the query port from the compose network without flood limits
+      TS3SERVER_IP_ALLOWLIST: /etc/ts3server/query_ip_allowlist.txt
+      # only set if non-empty (see .env) – otherwise TeamSpeak generates a password on the first start
+      TS3SERVER_SERVERADMIN_PASSWORD: ${TS3_SERVERADMIN_PASSWORD:-}
+    ports:
+      - "9987:9987/udp"   # voice
+      - "30033:30033"     # file transfer
+      # 10011 (ServerQuery) stays internal – only the webinterface needs it
+    volumes:
+      - ts3data:/var/ts3server
+    configs:
+      - source: query_allowlist
+        target: /etc/ts3server/query_ip_allowlist.txt
+
+  webinterface:
+    image: ghcr.io/dinh1405/ts3-webinterface:latest
+    restart: unless-stopped
+    depends_on:
+      - teamspeak
+    ports:
+      - "8088:8088"
+    environment:
+      TS3_QUERY_HOST: teamspeak
+      TS3_QUERY_PORT: "10011"
+      TS3_QUERY_PASSWORD: ${TS3_SERVERADMIN_PASSWORD:-}
+      # data directory of the TeamSpeak container (database, files/, logs) → backups, log viewer, restore
+      TS3_DIR: /ts3
+      # public address (links in notifications/invitations); set TRUST_PROXY=1 behind a reverse proxy
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8088}
+      # TRUST_PROXY: "1"
+      # UI_LANGUAGE: de
+    volumes:
+      - ts3wi-data:/data
+      - ts3wi-backups:/backups
+      - ts3data:/ts3
+    # Optional: let the webinterface start/stop/restart the TeamSpeak container (needed for TS3 updates
+    # and the watchdog). This hands the Docker socket to the webinterface, which is equivalent to root
+    # on the host – only do this if you trust every webinterface admin. Requires a docker CLI in the image,
+    # e.g. a derived image:  FROM ghcr.io/dinh1405/ts3-webinterface:latest  +  apt-get install docker.io
+    #   environment:
+    #     TS3_CONTROL_MODE: docker
+    #     TS3_DOCKER_CONTAINER: ts3-teamspeak-1
+    #   volumes:
+    #     - /var/run/docker.sock:/var/run/docker.sock
+    #   user: "0"
+
+configs:
+  query_allowlist:
+    content: |
+      127.0.0.1
+      ::1
+      172.28.0.0/24
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24
+
+volumes:
+  ts3data:
+  ts3wi-data:
+  ts3wi-backups:

@@ -1,0 +1,17 @@
+node_modules
+**/node_modules
+web/dist
+release
+data
+backups
+.tmp
+.env
+.env.*
+!.env.example
+.git
+.github
+*.tar.gz
+*.tgz
+*.log
+Dockerfile
+docker-compose.yml

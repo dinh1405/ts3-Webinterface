@@ -9,7 +9,7 @@ import { Readable } from 'node:stream';
 import { config } from '../config.js';
 import { HttpError } from './errors.js';
 import { ts3 } from './ts3.js';
-import { getProcessStatus, controlServer } from './process.js';
+import { getProcessStatus, controlServer, isConfigured } from './process.js';
 import { createBackup } from './backup.js';
 import * as watchdog from './watchdog.js';
 import * as maintenance from './maintenance.js';
@@ -17,7 +17,7 @@ import { notify } from './notify.js';
 import { audit } from './audit.js';
 import { ts } from './locale.js';
 
-const VERSIONS_URL = 'https://www.teamspeak.com/versions/server.json';
+const VERSIONS_URL = process.env.TS3_VERSIONS_URL || 'https://www.teamspeak.com/versions/server.json'; // Override nur für Tests
 export const RELEASE_URL = (v) => `https://files.teamspeak-services.com/releases/server/${v}/teamspeak3-server_linux_amd64-${v}.tar.bz2`;
 const PREVIOUS_DIR = '.previous-version';
 // Dateien/Ordner, die zur Server-Software gehören (nicht zu Daten/Konfiguration)
@@ -77,6 +77,7 @@ export async function updateSummary() {
     running: state.running,
     lastResult: state.lastResult,
     previousVersion: await previousVersion(),
+    controlConfigured: isConfigured(),
     ts3Dir: config.ts3.dir,
   };
 }
@@ -177,14 +178,15 @@ async function waitForVersion(expected, timeoutMs = 90000) {
 /**
  * Führt das Update aus. Läuft asynchron; Fortschritt über updateSummary().running.steps.
  */
-export async function runUpdate({ version, username = 'system' }) {
+export async function runUpdate({ version, username = 'system', parent = null }) {
   if (state.running) throw new HttpError(409, 'update.running');
   const dir = ts3Dir();
+  if (!isConfigured()) throw new HttpError(400, 'update.noControl');
   const target = String(version || state.latest || '').trim();
   if (!/^\d+(\.\d+)+$/.test(target)) throw new HttpError(400, 'update.badVersion');
   const url = target === state.latest && state.latestUrl ? state.latestUrl : RELEASE_URL(target);
   const checksum = target === state.latest ? state.checksum : null;
-  const lease = maintenance.acquire('ts3-update', { by: username, detail: target });
+  const lease = maintenance.acquire('ts3-update', { by: username, detail: target, parent });
   state.running = { version: target, startedAt: new Date().toISOString(), steps: [], by: username };
   const tmp = await fsp.mkdtemp(path.join(os.tmpdir(), 'ts3update-'));
   let stopped = false;

@@ -4,6 +4,7 @@ import { defineConfig } from 'vitest/config';
  * Servertests laufen je Datei in einem eigenen Prozess (pool: forks, isolate), weil viele Module
  * DATA_DIR/BACKUP_DIR beim Import binden. test/server/setup.mjs legt vor jedem Testmodul ein
  * frisches Datenverzeichnis an und setzt die Umgebung.
+ * Web-Tests decken reine Hilfsfunktionen des Frontends ab (kein DOM nötig).
  */
 export default defineConfig({
   test: {
@@ -18,6 +19,14 @@ export default defineConfig({
           isolate: true,
           testTimeout: 20000,
           hookTimeout: 20000,
+        },
+      },
+      {
+        test: {
+          name: 'web',
+          root: 'web',
+          environment: 'node',
+          include: ['src/**/*.test.{ts,tsx}'],
         },
       },
     ],

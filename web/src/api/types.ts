@@ -116,7 +116,7 @@ export interface UserNotificationSettings {
 export interface UpdateStep { ts: string; msg: string }
 export interface SelfUpdateRelease { version: string; name: string; notes: string; publishedAt: string | null; url: string | null; assetUrl: string | null; shaUrl: string | null; size: number | null }
 export interface SelfUpdateSummary {
-  current: string; isRelease: boolean; canUpdate: boolean; reasons: ('notLinux' | 'notRelease' | 'notWritable' | 'npmMissing' | 'tarMissing')[];
+  current: string; isRelease: boolean; canUpdate: boolean; reasons: ('notLinux' | 'notRelease' | 'notWritable' | 'npmMissing' | 'tarMissing' | 'container')[];
   restartMode: 'systemd' | 'manual'; rootDir: string; repo: string; checkedAt: number | null; latest: SelfUpdateRelease | null; updateAvailable: boolean; checkError: string | null;
   running: { version: string; from: string; startedAt: string; steps: UpdateStep[]; by: string; restart: boolean } | null;
   lastResult: { ok: boolean; from: string; to: string; finishedAt?: string; error?: string; steps?: UpdateStep[]; restart?: boolean; confirmedAt?: string; rolledBack?: boolean; version?: string } | null;
@@ -132,6 +132,7 @@ export interface UpdateSummary {
   running: { version: string; startedAt: string; steps: UpdateStep[]; by: string; rollback?: boolean } | null;
   lastResult: { ok: boolean; state?: 'ok' | 'unverified' | 'mismatch'; seen?: string | null; from?: string; to: string; error?: string; finishedAt: string; steps: UpdateStep[]; rollback?: boolean } | null;
   previousVersion: string | null;
+  controlConfigured?: boolean;
   ts3Dir: string | null;
 }
 
@@ -539,4 +540,12 @@ export interface HistorySummary {
 }
 export interface HistoryCleanupResult { at: string; trigger: string; cutoff: string; keepDays: number; removedFiles: number; removedRows: number; deletedIdentities: number; prunedIdentities: number; prunedVariants: number }
 
+export interface AutoUpdateSettings { enabled: boolean; frequency: 'daily' | 'weekly'; time: string; weekday: number; ts3: boolean; webinterface: boolean; onlyWhenEmpty: boolean }
+export interface AutoUpdateComponent { skipped?: string; reason?: string; error?: string; current?: string | null; count?: number; ok?: boolean; from?: string | null; to?: string | null; state?: string; seen?: string | null; restart?: boolean }
+export interface AutoUpdateResult { at: string; finishedAt?: string; trigger: 'schedule' | 'manual'; by: string; ok: boolean; skipped: 'busy' | 'running' | null; ts3: AutoUpdateComponent | null; webinterface: AutoUpdateComponent | null; restart: boolean }
+export interface AutoUpdateInfo {
+  settings: AutoUpdateSettings; timezone: string; cron: string | null; nextRun: string | null; lastRun: AutoUpdateResult | null;
+  running: { startedAt: string; trigger: string; by: string; step: 'ts3' | 'webinterface' } | null;
+  ts3Configured: boolean; selfUpdate: { canUpdate: boolean; reasons: string[]; restartMode: 'systemd' | 'manual' };
+}
 export interface MaintenanceStatus { active: { kind: string; by: string; startedAt: string; detail: string } | null }

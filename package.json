@@ -1,6 +1,6 @@
 {
   "name": "ts3-webinterface",
-  "version": "1.4.2",
+  "version": "1.5.0",
   "private": true,
   "description": "Web interface for managing a TeamSpeak 3 server (English/German)",
   "type": "module",
@@ -18,7 +18,8 @@
     "create-admin": "node server/scripts/create-admin.js",
     "typecheck": "npm run typecheck -w web",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "dev:fake": "node test/fixtures/fakequery.mjs --port 10099 --password testpw"
   },
   "devDependencies": {
     "concurrently": "^9.1.0",

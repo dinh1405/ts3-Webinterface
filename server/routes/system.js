@@ -11,6 +11,11 @@ import { checkSelfUpdate, runSelfUpdate, selfUpdateSummary } from '../lib/selfup
 import { audit } from '../lib/audit.js';
 import { requireAuth } from '../lib/auth.js';
 import * as maintenance from '../lib/maintenance.js';
+import { config } from '../config.js';
+import { selfUpdateInfo } from '../lib/selfupdate.js';
+import { applyAutoUpdateSchedule, scheduleToCron, taskNextRun } from '../lib/scheduler.js';
+import { runAutoUpdate, autoUpdateRunning } from '../lib/autoupdate.js';
+
 
 const router = Router();
 const MASK = '***';
@@ -147,6 +152,62 @@ router.post('/selfupdate/run', requireCap('system.manage'), asyncHandler(async (
   // Frühe Fehler (Voraussetzungen, Version) sofort melden; danach läuft der Job im Hintergrund weiter
   await Promise.race([p, new Promise((r) => setTimeout(r, 400))]);
   res.status(202).json(await selfUpdateSummary());
+}));
+
+/* ---------------- Auto-Update ---------------- */
+function autoUpdateInfo() {
+  const s = getSettings();
+  const a = s.autoUpdate;
+  const self = selfUpdateInfo();
+  return {
+    settings: a,
+    timezone: s.timezone,
+    cron: a.enabled ? scheduleToCron(a) : null,
+    nextRun: taskNextRun('autoupdate'),
+    lastRun: s.lastAutoUpdate,
+    running: autoUpdateRunning(),
+    ts3Configured: Boolean(config.ts3.dir),
+    selfUpdate: { canUpdate: self.canUpdate, reasons: self.reasons, restartMode: self.restartMode },
+  };
+}
+
+router.get('/autoupdate', requireCap('system.view'), (req, res) => {
+  res.json(autoUpdateInfo());
+});
+
+router.put('/autoupdate', requireCap('system.manage'), asyncHandler(async (req, res) => {
+  const body = z.object({
+    enabled: z.boolean(),
+    frequency: z.enum(['daily', 'weekly']).default('daily'),
+    time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+    weekday: z.coerce.number().int().min(0).max(6).default(0),
+    ts3: z.boolean().default(true),
+    webinterface: z.boolean().default(true),
+    onlyWhenEmpty: z.boolean().default(true),
+    timezone: z.string().max(64).optional(),
+  }).parse(req.body);
+  const { timezone, ...autoUpdate } = body;
+  const patch = { autoUpdate: { ...getSettings().autoUpdate, ...autoUpdate } };
+  if (timezone) {
+    try {
+      Intl.DateTimeFormat(undefined, { timeZone: timezone });
+    } catch {
+      throw new HttpError(400, 'errors.unknownTimezone');
+    }
+    patch.timezone = timezone;
+  }
+  await updateSettings(patch);
+  applyAutoUpdateSchedule();
+  audit(req, 'autoupdate.settings', autoUpdate);
+  res.json(autoUpdateInfo());
+}));
+
+router.post('/autoupdate/run-now', requireCap('update.run'), asyncHandler(async (req, res) => {
+  if (autoUpdateRunning()) throw new HttpError(409, 'autoupdate.running');
+  audit(req, 'autoupdate.start', {});
+  runAutoUpdate({ trigger: 'manual', username: req.user.username }).catch((e) => console.error('[autoupdate] failed:', e.message));
+  await new Promise((r) => setTimeout(r, 300));
+  res.status(202).json(autoUpdateInfo());
 }));
 
 export default router;

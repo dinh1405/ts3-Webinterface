@@ -5,6 +5,29 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.5.0] – 2026-09-07
+
+### Added
+- **Auto-update** (System → Auto-update): schedule (daily/weekly, time, timezone) that updates the TeamSpeak server (pre-update
+  backup, version verification, optionally only when no clients are online) and the webinterface (restarts under systemd) –
+  in this order, so the process restart comes last. "Run now" with confirmation; last run with a result per component.
+  New notification events `autoUpdateDone`, `autoUpdateSkipped` and `selfUpdateDone` (the manual webinterface update now
+  notifies before it restarts). Endpoints `GET/PUT /api/system/autoupdate`, `POST /api/system/autoupdate/run-now`.
+- **Docker**: image `ghcr.io/dinh1405/ts3-webinterface` (linux/amd64 + arm64, built by the new `docker.yml` workflow on every
+  release) and `docker-compose.yml` together with the official `teamspeak:3.13` image – shared TS3 volume (backups, logs, restore),
+  query allowlist for the compose network via a compose config, serveradmin password optionally from `.env`. Inside a container
+  the webinterface and the TS3 binary are updated by pulling new images; wizard and System show the reason *container*.
+- Without `JWT_SECRET` the secret is generated once into `<data dir>/.jwt-secret` – sessions survive restarts (Docker).
+- Tests: end-to-end (wizard → login → administration against the simulator), auto-update, translation gate, first frontend unit
+  tests (`web/src/**/*.test.ts`); `npm run dev:fake` starts the ServerQuery simulator for manual testing.
+
+### Changed
+- The scheduler runs several cron tasks (backup, auto-update) instead of one.
+- A TS3 update now requires configured process control up front (`update.noControl`) instead of failing after the backup;
+  System → TS3 update explains it.
+- Wizard: the allowlist check understands the webinterface's own address and CIDR entries (remote or container query hosts),
+  and a TS3 data directory without binary (container volume) is accepted.
+
 ## [1.4.2] – 2026-09-07
 
 ### Fixed

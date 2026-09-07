@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { clsx } from 'clsx';
-import { Bell, CheckCircle2, Download, HeartPulse, History, RefreshCw, RotateCcw, Save, XCircle, Package } from 'lucide-react';
+import { Bell, CalendarClock, CheckCircle2, Download, HeartPulse, History, RefreshCw, RotateCcw, Save, XCircle, Package } from 'lucide-react';
 import { api, errorMessage } from '../api/client';
 import { SelfUpdateTab } from '../components/SelfUpdateTab';
+import { AutoUpdateTab } from '../components/AutoUpdateTab';
 import type { NotificationSettings, NotificationState, UpdateSummary, WatchdogState } from '../api/types';
 import { useAuth } from '../lib/auth';
 import { formatDate, formatRelative, formatTime } from '../lib/format';
@@ -12,7 +13,7 @@ import { useT } from '../i18n';
 import { Badge, Button, Card, ConfirmDialog, EmptyState, ErrorBox, Field, FullPageSpinner, KV, PageHeader, Toggle } from '../components/ui';
 import { NotificationForm } from '../components/NotificationForm';
 
-type Tab = 'watchdog' | 'notifications' | 'update' | 'webinterface';
+type Tab = 'watchdog' | 'notifications' | 'update' | 'webinterface' | 'autoupdate';
 
 export default function SystemPage() {
   const { t } = useT();
@@ -20,8 +21,8 @@ export default function SystemPage() {
   return (
     <div>
       <PageHeader title={t('system.title')} description={t('system.description')} />
-      <div className="mb-4 flex w-fit gap-1 rounded-lg border border-slate-800 bg-slate-900/60 p-1">
-        {([['watchdog', t('system.tab.watchdog'), HeartPulse], ['notifications', t('system.tab.notifications'), Bell], ['update', t('system.tab.update'), Download], ['webinterface', t('system.tab.webinterface'), Package]] as const).map(([key, label, Icon]) => (
+      <div className="mb-4 flex w-fit max-w-full flex-wrap gap-1 rounded-lg border border-slate-800 bg-slate-900/60 p-1">
+        {([['watchdog', t('system.tab.watchdog'), HeartPulse], ['notifications', t('system.tab.notifications'), Bell], ['update', t('system.tab.update'), Download], ['webinterface', t('system.tab.webinterface'), Package], ['autoupdate', t('system.tab.autoupdate'), CalendarClock]] as const).map(([key, label, Icon]) => (
           <button key={key} onClick={() => setTab(key)} className={clsx('flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition', tab === key ? 'bg-indigo-500/20 text-indigo-200' : 'text-slate-400 hover:text-slate-100')}>
             <Icon className="h-4 w-4" />{label}
           </button>
@@ -31,6 +32,7 @@ export default function SystemPage() {
       {tab === 'notifications' && <NotificationsTab />}
       {tab === 'update' && <UpdateTab />}
       {tab === 'webinterface' && <SelfUpdateTab />}
+      {tab === 'autoupdate' && <AutoUpdateTab />}
     </div>
   );
 }
@@ -180,6 +182,7 @@ function UpdateTab() {
           { k: t('system.upd.previous'), v: u.previousVersion ? <span className="font-mono">{u.previousVersion}</span> : '–' },
         ]} />
         {u.checkError && <p className="mt-3 text-xs text-rose-300">{u.checkError}</p>}
+        {u.controlConfigured === false && <p className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">{t('system.upd.noControl')}</p>}
         {u.latestUrl && <p className="mt-3 truncate font-mono text-[11px] text-slate-500" title={u.latestUrl}>{u.latestUrl}</p>}
         {isAdmin && (
           <div className="mt-5 space-y-3">
@@ -187,7 +190,7 @@ function UpdateTab() {
               <input className="input font-mono" value={customVersion} placeholder={u.latest || '3.13.x'} onChange={(e) => setCustomVersion(e.target.value)} disabled={Boolean(u.running)} />
             </Field>
             <div className="flex flex-wrap gap-2">
-              <Button variant="primary" icon={Download} disabled={!target || Boolean(u.running) || target === u.current} onClick={() => setConfirmUpdate(true)}>{t('system.upd.updateTo', { version: target || '…' })}</Button>
+              <Button variant="primary" icon={Download} disabled={!target || Boolean(u.running) || target === u.current || u.controlConfigured === false} onClick={() => setConfirmUpdate(true)}>{t('system.upd.updateTo', { version: target || '…' })}</Button>
               {u.previousVersion && <Button variant="warning" icon={History} disabled={Boolean(u.running)} onClick={() => setConfirmRollback(true)}>{t('system.upd.rollbackTo', { version: u.previousVersion })}</Button>}
             </div>
           </div>

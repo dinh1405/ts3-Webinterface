@@ -10,6 +10,7 @@ cd ts3-Webinterface
 npm install
 cp .env.example .env          # HOST, PORT, JWT_SECRET are enough; TeamSpeak via the wizard
 npm run dev                   # API on :8088, Vite on :5173
+npm run dev:fake              # optional: ServerQuery simulator on 127.0.0.1:10099 (password testpw) – point the wizard at it
 ```
 
 Node.js ≥ 20. No native dependencies – keep it that way (the release package must install with `npm ci --omit=dev` on any Linux box).
@@ -50,10 +51,15 @@ CI runs the same checks plus shellcheck for `deploy/`.
 - `test/server/helpers.mjs` provides `createTestApp()` (Express app without background services), `makeAdmin()` and
   `loginAgent()` (Supertest agent with session cookie and CSRF header).
 - Tests that need `node:sqlite` skip themselves on older Node.js versions.
+- `test/fixtures/fakequery.mjs` is a ServerQuery simulator (module + CLI) with fictional data; `withFakeQuery()` in the helpers starts it
+  on a free port and connects the `ts3` module. `test/server/e2e-setup.test.mjs` runs the whole flow wizard → login → administration.
+- Frontend unit tests live next to the code as `web/src/**/*.test.ts` (Vitest project `web`, plain Node – no DOM). Keep them to pure
+  helpers; component behaviour is covered by the browser checks before a release.
 
 ## Releases (maintainers)
 
 1. Update `CHANGELOG.md` (move *Unreleased* into a version section) and bump `version` in `package.json`, `server/package.json`, `web/package.json`.
 2. Commit, tag `vX.Y.Z`, push the tag – the *Release* workflow builds `ts3-webinterface-X.Y.Z.tar.gz` (+ `.sha256`, `latest` copies) and
    publishes the GitHub release with notes from the changelog.
-3. `sudo ts3web update` on servers picks up the new release.
+3. `sudo ts3web update` on servers picks up the new release. The *Docker image* workflow publishes `ghcr.io/dinh1405/ts3-webinterface`
+   (`X.Y.Z`, `X.Y`, `latest`) for the same tag.
