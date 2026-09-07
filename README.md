@@ -54,6 +54,10 @@ On the server that runs (or should run) your TeamSpeak 3 server:
 curl -fsSL https://raw.githubusercontent.com/dinh1405/ts3-Webinterface/main/deploy/install.sh | sudo bash
 ```
 
+> Minimal images and containers (Debian minimal, LXC, Proxmox templates) often ship without `curl` and `sudo`
+> (`-bash: curl: command not found`). As root, install curl first (`apt-get update && apt-get install -y curl ca-certificates`
+> or `dnf install -y curl ca-certificates`) and run the line without `sudo`. Everything else the installer installs itself.
+
 The installer asks a few questions (language, nginx reverse proxy with domain, direct access or not) and finally prints a
 link like `http://your-server:8088/setup#token=…`. Open it in the browser and the **setup wizard** guides you through the rest.
 Afterwards you sign in with the administrator account you created.
