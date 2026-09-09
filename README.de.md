@@ -10,6 +10,7 @@ React-Oberfläche (dunkles und helles Design, responsive), vollständig in **Deu
 - Server starten/stoppen/neu starten, Watchdog, Backups mit Zeitplan und Wiederherstellung, TeamSpeak-Updates aus dem Browser.
 - Kanalbaum mit Drag & Drop, Client-Aktionen, Gruppen, kompletter Rechte-Editor, Bans, Beschwerden, Dateien/Icons, Logs, Statistiken.
 - Client-Historie und Profile, Benachrichtigungen (Discord, Telegram, E-Mail, Webhook), Einladungslinks, rollenbasierte Rechte, Audit-Log.
+- Befehlspalette (Strg + K), Tastenkürzel, Status-Chips in der Kopfleiste, einklappbare Seitenleiste, dunkles und helles Design.
 
 ## Screenshots
 
@@ -23,9 +24,9 @@ Alle Screenshots zeigen einen Demo-Server mit erfundenen Daten.
 |---|---|
 | ![Einrichtungsassistent](docs/screenshots/setup-wizard.png) | ![Client-Profil](docs/screenshots/history-profile.png) |
 
-| Einstellungen → Verbindung & Installation |
+| Einstellungen (virtueller Server) |
 |---|
-| ![Verbindung & Installation](docs/screenshots/settings-connection.png) |
+| ![Einstellungen](docs/screenshots/settings-connection.png) |
 
 ## Inhalt
 
@@ -107,7 +108,8 @@ Alles lässt sich später unter **Einstellungen → Verbindung & Installation** 
 
 | Bereich | Funktionen |
 |---|---|
-| **Dashboard** | Prozessstatus, Uptime, Clients, Traffic, virtuelle Server, **Start / Stop / Neustart**, Nachricht an alle, Live-Aktivitätsfeed (SSE) |
+| **Dashboard** | Kacheln mit **Sparklines der letzten Stunde** (Clients, Bandbreite, Ping) und Trend, Serverinfo, virtuelle Server, **Start / Stop / Neustart**, Nachricht an alle, Live-Aktivitätsfeed (SSE) |
+| **Oberfläche** | **Befehlspalette** (Strg/⌘ + K: Seiten, Aktionen, Clients online, Kanäle), **Tastenkürzel** (`?` Übersicht, `G` + Buchstabe), **Status-Chips** in der Kopfleiste (Prozess, ServerQuery, Clients online, letztes Backup, Update verfügbar), einklappbare Seitenleiste, dunkles/helles Design, Deutsch/Englisch, responsive |
 | **Clients & Kanäle** | Live-Kanalbaum, Online-Liste, Client-Details, **kicken, anstupsen, Nachricht, verschieben, bannen**, Client-Datenbank (offline Clients suchen und bannen) |
 | **Gruppen** | Servergruppen und Kanalgruppen: anlegen, umbenennen, kopieren, löschen; Mitglieder ansehen, Clients hinzufügen/entfernen; Kanalgruppen-Zuweisungen (Client ↔ Kanal); Servergruppen eines Clients direkt im Client-Dialog |
 | **Rechte-Editor** | Berechtigungen von Servergruppen, Kanalgruppen, Clients, Kanälen und Client-im-Kanal anzeigen und bearbeiten (Wert, Skip, Negiert), Suche und Kategorien über alle ~500 Berechtigungen, Sammel-Speichern, einzelne Rechte entfernen; **effektive Rechte** eines Clients inkl. Herkunft (`permoverview`) |

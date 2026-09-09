@@ -10,7 +10,7 @@ import type { Channel, FileEntry, GroupsResponse, IconEntry } from '../api/types
 import { useAuth } from '../lib/auth';
 import { formatBytes, formatDate } from '../lib/format';
 import { useT } from '../i18n';
-import { Button, Card, ConfirmDialog, EmptyState, ErrorBox, Field, FullPageSpinner, Modal, PageHeader } from '../components/ui';
+import { Button, Card, ConfirmDialog, EmptyState, ErrorBox, Field, FullPageSpinner, Modal, PageHeader, TabBar } from '../components/ui';
 
 type Tab = 'files' | 'icons' | 'all';
 
@@ -22,11 +22,7 @@ export default function FilesPage() {
   return (
     <div>
       <PageHeader title={t('files.title')} description={t('files.description')} />
-      <div className="mb-4 flex w-fit gap-1 rounded-lg border border-slate-800 bg-slate-900/60 p-1">
-        {([['files', t('files.tab.files'), Folder], ['all', t('files.tab.all'), List], ['icons', t('files.tab.icons'), Image]] as const).map(([key, label, Icon]) => (
-          <button key={key} onClick={() => setTab(key)} className={clsx('flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition', tab === key ? 'bg-indigo-500/20 text-indigo-200' : 'text-slate-400 hover:text-slate-100')}><Icon className="h-4 w-4" />{label}</button>
-        ))}
-      </div>
+      <TabBar value={tab} onChange={setTab} label={t('files.title')} items={[{ value: 'files', label: t('files.tab.files'), icon: Folder }, { value: 'all', label: t('files.tab.all'), icon: List }, { value: 'icons', label: t('files.tab.icons'), icon: Image }]} />
       {tab === 'files' ? <FileBrowser /> : tab === 'all' ? <AllFilesView /> : <IconManager />}
     </div>
   );
@@ -92,9 +88,9 @@ function FileBrowser() {
         </ul>
       </Card>
       <Card className="lg:col-span-3" noPadding
-        title={<span className="flex items-center gap-1 text-sm"><button className="text-indigo-300 hover:underline" onClick={() => setLoc(cid, '/')}>{locName}</button>{crumbs.map((c, i) => <span key={i} className="flex items-center gap-1"><ChevronRight className="h-3.5 w-3.5 text-slate-600" /><button className="text-slate-300 hover:underline" onClick={() => setLoc(cid, `/${crumbs.slice(0, i + 1).join('/')}`)}>{c}</button></span>)}</span>}
+        title={<span className="flex items-center gap-1 text-sm"><button className="text-indigo-300 hover:underline" onClick={() => setLoc(cid, '/')}>{locName}</button>{crumbs.map((c, i) => <span key={i} className="flex items-center gap-1"><ChevronRight className="h-3.5 w-3.5 text-slate-500" /><button className="text-slate-300 hover:underline" onClick={() => setLoc(cid, `/${crumbs.slice(0, i + 1).join('/')}`)}>{c}</button></span>)}</span>}
         actions={<>
-          <Button size="sm" variant="ghost" icon={RefreshCw} onClick={() => list.refetch()} loading={list.isFetching} />
+          <Button size="sm" variant="ghost" icon={RefreshCw} title={t('common.refresh')} onClick={() => list.refetch()} loading={list.isFetching} />
           {canWrite && <>
             <input ref={fileRef} type="file" multiple className="hidden" onChange={(e) => { if (e.target.files?.length) upload.mutate(e.target.files); e.target.value = ''; }} />
             <Button size="sm" icon={FolderPlus} onClick={() => setMkdirOpen(true)}>{t('files.folder')}</Button>
@@ -104,7 +100,7 @@ function FileBrowser() {
         {list.isLoading && <FullPageSpinner />}
         {list.error && <div className="p-4"><ErrorBox error={list.error} onRetry={() => list.refetch()} /></div>}
         {list.data && (list.data.entries.length === 0 ? <EmptyState icon={Folder} title={t('files.emptyFolder')} description={canWrite ? t('files.emptyFolderHint') : undefined} /> : (
-          <table className="table">
+          <div className="overflow-x-auto"><table className="table">
             <thead><tr><th>{t('common.name')}</th><th className="w-28">{t('files.th.size')}</th><th className="w-44">{t('files.th.modified')}</th><th className="w-40 text-right"></th></tr></thead>
             <tbody>
               {list.data.entries.map((f) => (
@@ -127,7 +123,7 @@ function FileBrowser() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         ))}
       </Card>
       <Modal open={mkdirOpen} onClose={() => setMkdirOpen(false)} title={t('files.createFolder')} size="sm" footer={<><Button variant="ghost" onClick={() => setMkdirOpen(false)}>{t('common.cancel')}</Button><Button variant="primary" loading={mkdir.isPending} disabled={!dirName.trim()} onClick={() => mkdir.mutate()}>{t('files.create')}</Button></>}>

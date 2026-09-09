@@ -5,6 +5,41 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.8.0] – 2026-09-09
+
+### Added
+- **Header bar** with a **command palette** (Ctrl/⌘ + K: pages, actions, online clients, channels), **status chips**
+  (process, ServerQuery, clients online, last backup, update available – each linking to its page) and the theme menu.
+  The status block at the bottom of the sidebar is gone.
+- **Keyboard shortcuts**: `?` shows an overview, `G` followed by a letter jumps to a page (e.g. `G B` → Backups).
+- **Collapsible sidebar** (232 px, or an icon rail with tooltips); the state is remembered per browser.
+- **Dashboard tiles with sparklines** of the last hour (clients, bandwidth, ping) and trend chips; new endpoint
+  `GET /api/overview` (sparklines, last backup with `backups.view`, update state with `system.view`).
+- **Design system** in `web/src/components/ui.tsx`: one semantic tone vocabulary (`success · danger · warning · info · neutral ·
+  accent`), `Alert`, `StatusText`, `StatTile` + `Sparkline`, `TabBar` (Radix Tabs: arrow keys, sliding indicator), `Tip` (tooltip),
+  `Menu` (dropdown), `Pop` (popover), `SortableTh` (`aria-sort`), `Skeleton`/`PageSkeleton`, `IconButton`, `Field` with error slot;
+  tokens `text-2xs`, radii `control`/`chip`/`surface`, surface shadows, chart colours; developer route `/styleguide` (dev build only).
+- **Unsaved-changes guard**: leaving Settings, System (watchdog, notifications, auto-update), My account (notifications) or
+  Roles & rights with unsaved edits asks first; closing the tab warns too.
+- Palette actions open dialogs via URL parameters (`/users?create=1`, `/backups?create=1`, `/?action=restart|start|stop`,
+  `/clients?cid=…` highlights the channel).
+
+### Changed
+- **Look**: cards with a soft gradient, translucent border and shadow (radius 16), the indigo→violet gradient only on the primary
+  button and the active navigation item, page titles at 30 px with a subtle glow, tabular numbers, 150–200 ms motion (off under
+  `prefers-reduced-motion`), skeletons instead of spinners while pages load, proper shadows in the light theme.
+- Dictionaries are loaded **per language** as separate chunks – the first load is about 90 KB smaller.
+- 26 hand-written hint boxes and 40+ loose status colours now use `Alert`/`StatusText`; the tab strips on System, Files, Logs,
+  Settings, Clients and Groups use `TabBar`.
+- Accessibility: icon-only buttons get an accessible name (`title` becomes `aria-label`), one global `focus-visible` ring,
+  low-emphasis text no longer uses `slate-600/700` (contrast in the light theme), tables scroll horizontally on narrow screens
+  (Backups → snapshots, Files).
+- New frontend dependencies: `@radix-ui/react-tooltip`, `@radix-ui/react-dropdown-menu`, `@radix-ui/react-popover`,
+  `@radix-ui/react-tabs`, `cmdk`.
+- Tests: `test/server/overview.test.mjs` (sparklines of the last hour, permission gating). 18 files / 64 tests.
+- README screenshots retaken with the new interface.
+
+
 ## [1.6.1] – 2026-09-07
 
 ### Added

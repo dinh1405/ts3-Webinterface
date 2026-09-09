@@ -44,8 +44,8 @@ export default function HistoryPage() {
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label={t('history.identities')} value={s?.identities ?? '–'} sub={s ? t('history.newWeek', { count: s.newIdentitiesWeek }) : undefined} icon={Users} />
-        <Stat label={t('history.seenToday')} value={s?.uniqueToday ?? '–'} sub={s ? t('history.onlineNow', { count: s.onlineNow }) : undefined} icon={Clock} tone="green" />
-        <Stat label={t('history.last7')} value={s?.uniqueWeek ?? '–'} sub={t('history.distinctClients')} icon={UserPlus} tone="blue" />
+        <Stat label={t('history.seenToday')} value={s?.uniqueToday ?? '–'} sub={s ? t('history.onlineNow', { count: s.onlineNow }) : undefined} icon={Clock} tone="success" />
+        <Stat label={t('history.last7')} value={s?.uniqueWeek ?? '–'} sub={t('history.distinctClients')} icon={UserPlus} tone="info" />
         <Stat label={t('history.last30')} value={s?.uniqueMonth ?? '–'} sub={s ? t('history.sessionsCount', { count: s.sessionsMonth }) : undefined} icon={History} tone="purple" />
       </div>
 
@@ -87,14 +87,14 @@ export default function HistoryPage() {
                           </Link>
                         </td>
                         <td className="font-mono text-xs">{e.lastIp || '–'}{e.ips > 1 && <span className="ml-1 text-slate-500">+{e.ips - 1}</span>}</td>
-                        <td className="whitespace-nowrap text-xs" title={formatDate(e.lastSeen, true)}>{e.online ? <Badge tone="green" dot pulse>online</Badge> : formatRelative(e.lastSeen)}</td>
+                        <td className="whitespace-nowrap text-xs" title={formatDate(e.lastSeen, true)}>{e.online ? <Badge tone="success" dot pulse>online</Badge> : formatRelative(e.lastSeen)}</td>
                         <td className="whitespace-nowrap text-xs text-slate-400">{formatDate(e.firstSeen)}</td>
                         <td className="text-right">{e.sessions}</td>
                         <td className="whitespace-nowrap text-right text-xs">{formatDuration(e.onlineSec)}</td>
                         <td className="text-right">
                           <span className="flex items-center justify-end gap-1.5">
-                            {e.nicknames > 1 && <Badge tone="indigo" className="whitespace-nowrap">{t('history.namesCount', { count: e.nicknames })}</Badge>}
-                            {e.notes > 0 && <Badge tone="amber"><StickyNote className="h-3 w-3" />{e.notes}</Badge>}
+                            {e.nicknames > 1 && <Badge tone="accent" className="whitespace-nowrap">{t('history.namesCount', { count: e.nicknames })}</Badge>}
+                            {e.notes > 0 && <Badge tone="warning"><StickyNote className="h-3 w-3" />{e.notes}</Badge>}
                           </span>
                         </td>
                       </tr>

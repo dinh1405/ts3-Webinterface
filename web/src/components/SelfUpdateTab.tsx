@@ -1,14 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { clsx } from 'clsx';
 import { Download, ExternalLink, Package, RefreshCw } from 'lucide-react';
 import { api, errorMessage } from '../api/client';
 import type { SelfUpdateSummary } from '../api/types';
 import { useAuth } from '../lib/auth';
 import { formatDate, formatRelative, formatTime } from '../lib/format';
 import { useT } from '../i18n';
-import { Badge, Button, Card, ConfirmDialog, EmptyState, ErrorBox, FullPageSpinner, KV } from './ui';
+import { Badge, Button, Card, ConfirmDialog, EmptyState, ErrorBox, FullPageSpinner, KV, Alert, StatusText } from './ui';
 
 /** System → Webinterface: Version prüfen und das Webinterface selbst aus GitHub-Releases aktualisieren. */
 export function SelfUpdateTab() {
@@ -89,19 +88,18 @@ export function SelfUpdateTab() {
       <Card title={t('system.self.title')} subtitle={t('system.self.subtitle')} actions={<Button size="sm" icon={RefreshCw} loading={check.isPending} onClick={() => check.mutate()}>{t('system.upd.checkNow')}</Button>}>
         <KV items={[
           { k: t('system.upd.installed'), v: <span className="font-mono">{u.current}</span> },
-          { k: t('system.upd.available'), v: latest ? <span className="whitespace-nowrap"><span className="font-mono">{latest.version}</span> {u.updateAvailable ? <Badge tone="amber" className="ml-1">{t('system.upd.updateAvailable')}</Badge> : <Badge tone="green" className="ml-1">{t('system.upd.upToDate')}</Badge>}</span> : '–' },
+          { k: t('system.upd.available'), v: latest ? <span className="whitespace-nowrap"><span className="font-mono">{latest.version}</span> {u.updateAvailable ? <Badge tone="warning" className="ml-1">{t('system.upd.updateAvailable')}</Badge> : <Badge tone="success" className="ml-1">{t('system.upd.upToDate')}</Badge>}</span> : '–' },
           { k: t('system.self.published'), v: latest?.publishedAt ? formatDate(latest.publishedAt) : '–' },
           { k: t('dash.checked'), v: u.checkedAt ? formatRelative(u.checkedAt) : '–' },
           { k: t('system.upd.previous'), v: u.previousVersion ? <span className="font-mono">{u.previousVersion}</span> : '–' },
           { k: t('system.self.restart'), v: u.restartMode === 'systemd' ? t('system.self.restartSystemd') : t('system.self.restartManual') },
         ]} />
-        {u.checkError && <p className="mt-3 text-xs text-rose-300">{u.checkError}</p>}
+        {u.checkError && <StatusText tone="danger" className="mt-3 text-xs">{u.checkError}</StatusText>}
         {!u.canUpdate && (
-          <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
-            <p className="font-medium">{t('system.self.notPossible')}</p>
+          <Alert tone="warning" className="mt-4" title={t('system.self.notPossible')}>
             <ul className="list-disc pl-5 text-xs">{u.reasons.map((r) => <li key={r}>{t(`system.self.reason.${r}`)}</li>)}</ul>
             <p className="mt-1 text-xs">{t('system.self.cliHint')} <code className="rounded bg-slate-950/60 px-1 font-mono">sudo ts3web update</code></p>
-          </div>
+          </Alert>
         )}
         {latest?.notes && (
           <div className="mt-4">
@@ -124,15 +122,15 @@ export function SelfUpdateTab() {
         {steps.length === 0 ? (
           <div className="p-4">
             {u.lastResult ? (
-              <div className={clsx('rounded-lg border px-3 py-2 text-sm', u.lastResult.ok && !u.lastResult.rolledBack ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200' : 'border-rose-500/30 bg-rose-500/10 text-rose-200')}>
+              <Alert tone={u.lastResult.ok && !u.lastResult.rolledBack ? 'success' : 'danger'}>
                 {u.lastResult.rolledBack ? t('system.self.rolledBackText', { from: u.lastResult.from, to: u.lastResult.to }) : u.lastResult.ok ? t('system.self.confirmedText', { version: u.lastResult.to }) : `${t('common.error')}: ${u.lastResult.error}`}
-              </div>
+              </Alert>
             ) : <EmptyState icon={Package} title={t('system.upd.noneYet')} />}
           </div>
         ) : (
           <ol className="max-h-96 space-y-1 overflow-y-auto p-4 font-mono text-xs">
-            {steps.map((s, i) => <li key={i} className="flex gap-3"><span className="shrink-0 text-slate-500">{formatTime(s.ts)}</span><span className={clsx(/^(FEHLER|ERROR)/.test(s.msg) ? 'text-rose-300' : 'text-slate-200')}>{s.msg}</span></li>)}
-            {u.lastResult && !u.running && !u.lastResult.ok && <li className="text-rose-300">{t('common.error')}: {u.lastResult.error}</li>}
+            {steps.map((s, i) => <li key={i} className="flex gap-3"><span className="shrink-0 text-slate-500">{formatTime(s.ts)}</span><StatusText tone={/^(FEHLER|ERROR)/.test(s.msg) ? 'danger' : 'neutral'} className={/^(FEHLER|ERROR)/.test(s.msg) ? undefined : 'text-slate-200'}>{s.msg}</StatusText></li>)}
+            {u.lastResult && !u.running && !u.lastResult.ok && <li><StatusText tone="danger">{t('common.error')}: {u.lastResult.error}</StatusText></li>}
           </ol>
         )}
       </Card>

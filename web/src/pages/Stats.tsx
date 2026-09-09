@@ -42,10 +42,10 @@ export default function StatsPage() {
         </div>} />
 
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <Stat label={t('stats.clientsNow')} value={s.currentClients ?? '–'} sub={s.avgClients !== null ? t('stats.avgInRange', { avg: s.avgClients }) : undefined} icon={Users} tone="indigo" />
+        <Stat label={t('stats.clientsNow')} value={s.currentClients ?? '–'} sub={s.avgClients !== null ? t('stats.avgInRange', { avg: s.avgClients }) : undefined} icon={Users} tone="accent" />
         <Stat label={t('stats.peak')} value={s.peakClients ? s.peakClients.value : '–'} sub={s.peakClients ? formatDate(s.peakClients.t) : undefined} icon={BarChart3} tone="purple" />
-        <Stat label={t('stats.availability')} value={s.uptimePct !== null ? `${s.uptimePct} %` : '–'} sub={s.queryUptimePct !== null ? t('stats.queryAvailability', { pct: s.queryUptimePct }) : undefined} icon={Clock} tone={s.uptimePct !== null && s.uptimePct < 99 ? 'amber' : 'green'} />
-        <Stat label={t('stats.traffic')} value={s.trafficTx !== null ? formatBytes(s.trafficTx, 1) : '–'} sub={s.trafficRx !== null ? t('stats.trafficSub', { rx: formatBytes(s.trafficRx, 1), ping: s.avgPing ?? '–' }) : undefined} icon={Wifi} tone="blue" />
+        <Stat label={t('stats.availability')} value={s.uptimePct !== null ? `${s.uptimePct} %` : '–'} sub={s.queryUptimePct !== null ? t('stats.queryAvailability', { pct: s.queryUptimePct }) : undefined} icon={Clock} tone={s.uptimePct !== null && s.uptimePct < 99 ? 'warning' : 'success'} />
+        <Stat label={t('stats.traffic')} value={s.trafficTx !== null ? formatBytes(s.trafficTx, 1) : '–'} sub={s.trafficRx !== null ? t('stats.trafficSub', { rx: formatBytes(s.trafficRx, 1), ping: s.avgPing ?? '–' }) : undefined} icon={Wifi} tone="info" />
       </div>
 
       {!hasData ? (

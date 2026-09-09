@@ -7,6 +7,7 @@ import type { UserNotificationSettings } from '../api/types';
 import { useAuth } from '../lib/auth';
 import { formatDate } from '../lib/format';
 import { LOCALES, useT, type Locale } from '../i18n';
+import { useUnsavedChanges } from '../lib/unsaved';
 import { Badge, Button, Card, ErrorBox, Field, FullPageSpinner, KV, PageHeader } from '../components/ui';
 import { NotificationForm } from '../components/NotificationForm';
 import { TotpCard } from '../components/TotpCard';
@@ -43,7 +44,7 @@ export default function AccountPage() {
           <KV items={[
             { k: t('auth.username'), v: user?.username },
             { k: t('account.displayName'), v: user?.displayName || '–' },
-            { k: t('account.role'), v: <Badge tone={user?.role === 'admin' ? 'red' : user?.role === 'operator' ? 'indigo' : 'slate'}>{td(`role.${user?.role}`, undefined, user?.role)}</Badge> },
+            { k: t('account.role'), v: <Badge tone={user?.role === 'admin' ? 'danger' : user?.role === 'operator' ? 'accent' : 'neutral'}>{td(`role.${user?.role}`, undefined, user?.role)}</Badge> },
             { k: t('account.created'), v: formatDate(user?.createdAt) },
             { k: t('account.lastLogin'), v: formatDate(user?.lastLoginAt) },
           ]} />
@@ -109,6 +110,7 @@ function MyNotifications() {
     onSuccess: (_, ch) => toast.success(t('account.testSent', { channel: ch })),
     onError: (e) => toast.error(errorMessage(e)),
   });
+  useUnsavedChanges(Boolean(form && q.data) && JSON.stringify(form) !== JSON.stringify(q.data?.settings));
   if (q.isLoading || !form) return <FullPageSpinner />;
   if (q.error) return <ErrorBox error={q.error} onRetry={() => q.refetch()} />;
   const dirty = JSON.stringify(form) !== JSON.stringify(q.data!.settings);

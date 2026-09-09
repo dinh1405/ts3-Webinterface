@@ -44,6 +44,21 @@ CI runs the same checks plus shellcheck for `deploy/`.
 - Anything that talks to the TeamSpeak server should tolerate a disconnected ServerQuery (return a 503 with `errors.ts3.unavailable`).
 - Never log or return secrets (query password, JWT secret, notification tokens, setup token).
 
+## Design system (frontend)
+
+- All building blocks live in `web/src/components/ui.tsx`; the developer route `/styleguide` (dev server only) shows every
+  component with its variants and states – check it after changing a component.
+- **Tones** are semantic: `success · danger · warning · info · neutral · accent` (plus `purple`). Use `Badge`, `Alert`,
+  `StatusText` and `StatTile` with a tone instead of writing `text-emerald-300` / `border-amber-500/30 …` by hand.
+- **Tokens** (`web/src/index.css`, `@theme`): `text-2xs` (11 px), radii `rounded-control` (controls, 10 px), `rounded-chip`
+  (8 px), `rounded-surface` (cards, 16 px), `shadow-surface`, `shadow-glow`, chart colours `--color-chart-1…5`. The accent
+  gradient (`--accent-gradient`) is reserved for the primary button and the active navigation item.
+- Tabs → `TabBar` (Radix Tabs), tooltips → `Tip`, dropdowns → `Menu`, popovers → `Pop`, sortable columns → `SortableTh`
+  (sets `aria-sort`), loading → `Skeleton`/`PageSkeleton`. Icon-only buttons need a `title` (becomes `aria-label`) or use `IconButton`.
+- Forms with unsaved edits call `useUnsavedChanges(dirty)` (`web/src/lib/unsaved.tsx`); the layout renders the guard dialog.
+- Motion is 150–200 ms and must respect `prefers-reduced-motion` (the global rule in `index.css` handles CSS animations).
+- New pages: add the entry to `web/src/lib/nav.ts` (sidebar, command palette and `G` + key shortcuts derive from it).
+
 ## Testing
 
 - Server tests live in `test/server/*.test.mjs` and run with Vitest in one process per file (`pool: forks`), because the server

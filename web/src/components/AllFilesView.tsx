@@ -3,13 +3,13 @@ import { useSearchParams } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { clsx } from 'clsx';
-import { AlertTriangle, ArrowDown, ArrowUp, Download, File, FolderOpen, List, RefreshCw, Search, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Download, File, FolderOpen, List, RefreshCw, Search, Trash2 } from 'lucide-react';
 import { api, errorMessage } from '../api/client';
 import type { AllFilesResponse, AllFilesRow } from '../api/types';
 import { useAuth } from '../lib/auth';
 import { formatBytes, formatDate, formatRelative } from '../lib/format';
 import { useT } from '../i18n';
-import { Button, Card, ConfirmDialog, EmptyState, ErrorBox, FullPageSpinner } from './ui';
+import { Button, Card, ConfirmDialog, EmptyState, ErrorBox, FullPageSpinner, Alert } from './ui';
 
 type SortKey = 'name' | 'channelName' | 'path' | 'size' | 'datetime';
 
@@ -64,13 +64,10 @@ export function AllFilesView() {
       {list.isLoading && <FullPageSpinner label={t('files.all.loading')} />}
       {list.error && <div className="p-4"><ErrorBox error={list.error} onRetry={() => list.refetch()} /></div>}
       {d && (d.truncated || d.errors.length > 0) && (
-        <div className="m-4 mb-0 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          <div>
-            {d.truncated && <p>{t('files.all.truncated')}</p>}
-            {d.errors.length > 0 && <p title={d.errors.map((e) => `${e.cid}:${e.path} – ${e.error}`).join('\n')}>{t('files.all.errors', { count: d.errors.length })}{d.errors.some((e) => /flood/i.test(e.error)) && ` ${t('files.all.flood')}`}</p>}
-          </div>
-        </div>
+        <Alert tone="warning" compact className="m-4 mb-0">
+          {d.truncated && <p>{t('files.all.truncated')}</p>}
+          {d.errors.length > 0 && <p title={d.errors.map((e) => `${e.cid}:${e.path} – ${e.error}`).join('\n')}>{t('files.all.errors', { count: d.errors.length })}{d.errors.some((e) => /flood/i.test(e.error)) && ` ${t('files.all.flood')}`}</p>}
+        </Alert>
       )}
       {d && (rows.length === 0 ? <EmptyState icon={File} title={q ? t('common.noMatches') : t('files.all.none')} /> : (
         <div className="overflow-x-auto">

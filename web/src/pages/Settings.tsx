@@ -5,10 +5,11 @@ import { clsx } from 'clsx';
 import { Plug, RotateCcw, Save, Server, Settings2 } from 'lucide-react';
 import { ConnectionSettings } from '../components/setup/ConnectionSettings';
 import { useT } from '../i18n';
+import { useUnsavedChanges } from '../lib/unsaved';
 import { api, errorMessage } from '../api/client';
 import { useAuth } from '../lib/auth';
 import { formatBytes, formatDate } from '../lib/format';
-import { Badge, Button, Card, ErrorBox, Field, FullPageSpinner, KV, PageHeader, Toggle } from '../components/ui';
+import { Badge, Button, Card, ErrorBox, Field, FullPageSpinner, KV, PageHeader, Toggle, TabBar } from '../components/ui';
 
 type Value = string | number | boolean;
 type Info = Record<string, Value>;
@@ -23,13 +24,7 @@ export default function SettingsPage() {
   return (
     <div>
       <PageHeader title={t('settings.title')} description={t('settings.description')} />
-      <div className="mb-4 flex w-fit gap-1 rounded-lg border border-slate-800 bg-slate-900/60 p-1">
-        {tabs.map(([key, label, Icon]) => (
-          <button key={key} onClick={() => setTab(key)} className={clsx('flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition', tab === key ? 'bg-indigo-500/20 text-indigo-200' : 'text-slate-400 hover:text-slate-100')}>
-            <Icon className="h-4 w-4" />{label}
-          </button>
-        ))}
-      </div>
+      <TabBar value={tab} onChange={setTab} label={t('settings.title')} items={tabs.map(([value, label, icon]) => ({ value, label, icon }))} />
       {tab === 'virtual' ? <VirtualSettings /> : tab === 'instance' ? <InstanceSettings /> : <ConnectionSettings />}
     </div>
   );
@@ -54,6 +49,7 @@ function useSettingsForm(info: Info | undefined, keys: string[]) {
     return out;
   }, [form, info]);
   const reset = () => { if (info) { const next: Info = {}; for (const k of keys) if (info[k] !== undefined) next[k] = info[k]; setForm(next); } };
+  useUnsavedChanges(Object.keys(changed).length > 0);
   return { form, set, changed, reset };
 }
 
@@ -107,7 +103,7 @@ function SaveBar({ changed, onSave, onReset, saving, disabled }: { changed: Info
   if (disabled) return <p className="text-xs text-slate-500">{t('settings.readOnly')}</p>;
   return (
     <div className="sticky bottom-4 z-10 flex items-center justify-between gap-3 rounded-xl border border-slate-700 bg-slate-900/95 px-4 py-3 shadow-xl shadow-black/40 backdrop-blur">
-      <span className="text-sm text-slate-300">{n === 0 ? t('settings.noChanges') : <><Badge tone="amber">{n}</Badge> {t('settings.changedCount', { count: n })}</>}</span>
+      <span className="text-sm text-slate-300">{n === 0 ? t('settings.noChanges') : <><Badge tone="warning">{n}</Badge> {t('settings.changedCount', { count: n })}</>}</span>
       <div className="flex gap-2">
         <Button variant="ghost" icon={RotateCcw} onClick={onReset} disabled={n === 0 || saving}>{t('common.reset')}</Button>
         <Button variant="primary" icon={Save} onClick={onSave} loading={saving} disabled={n === 0}>{t('common.save')}</Button>
@@ -156,7 +152,7 @@ function VirtualSettings() {
       <Card title={t('common.status')} subtitle={t('settings.readOnlyCard')}>
         <KV items={[
           { k: 'Unique ID', v: <span className="font-mono text-xs">{String(info.virtualserverUniqueIdentifier)}</span> },
-          { k: t('common.status'), v: <Badge tone={info.virtualserverStatus === 'online' ? 'green' : 'amber'}>{String(info.virtualserverStatus)}</Badge> },
+          { k: t('common.status'), v: <Badge tone={info.virtualserverStatus === 'online' ? 'success' : 'warning'}>{String(info.virtualserverStatus)}</Badge> },
           { k: 'Port', v: String(info.virtualserverPort) },
           { k: t('dash.created'), v: formatDate(Number(info.virtualserverCreated)) },
           { k: t('settings.clientsOnline'), v: `${info.virtualserverClientsonline} (+${info.virtualserverQueryclientsonline} Query)` },

@@ -7,10 +7,12 @@ import type { CapabilityGroup, Invite, Role, User } from '../api/types';
 import { useAuth } from '../lib/auth';
 import { formatDate, formatRelative } from '../lib/format';
 import { useT } from '../i18n';
+import { useUrlAction } from '../lib/urlAction';
+import { useUnsavedChanges } from '../lib/unsaved';
 import { Badge, Button, Card, ConfirmDialog, EmptyState, ErrorBox, Field, FullPageSpinner, Modal, PageHeader, Toggle } from '../components/ui';
 
 const ROLES: Role[] = ['admin', 'operator', 'viewer'];
-const ROLE_TONE: Record<Role, 'red' | 'indigo' | 'slate'> = { admin: 'red', operator: 'indigo', viewer: 'slate' };
+const ROLE_TONE: Record<Role, 'danger' | 'accent' | 'neutral'> = { admin: 'danger', operator: 'accent', viewer: 'neutral' };
 const ROLE_RANK: Record<Role, number> = { viewer: 0, operator: 1, admin: 2 };
 /** Rollen, die ein Benutzer vergeben darf: nur bis zur eigenen. */
 const assignableRoles = (own?: Role) => ROLES.filter((r) => ROLE_RANK[r] <= ROLE_RANK[own || 'viewer']);
@@ -22,6 +24,7 @@ export default function UsersPage() {
   const qc = useQueryClient();
   const users = useQuery({ queryKey: ['users'], queryFn: () => api.get<{ users: User[] }>('/api/users') });
   const [createOpen, setCreateOpen] = useState(false);
+  useUrlAction('create', () => setCreateOpen(true));
   const [edit, setEdit] = useState<User | null>(null);
   const [pw, setPw] = useState<User | null>(null);
   const [del, setDel] = useState<User | null>(null);
@@ -65,7 +68,7 @@ export default function UsersPage() {
                         {u.displayName && <p className="text-xs text-slate-500">@{u.username}</p>}
                       </td>
                       <td><Badge tone={ROLE_TONE[u.role]}>{t(`role.${u.role}`)}</Badge></td>
-                      <td><span className="flex flex-wrap gap-1"><Badge tone={u.active ? 'green' : 'slate'} dot>{u.active ? t('users.active') : t('users.disabled')}</Badge>{u.totpEnabled && <span title={t('account.totp.title')}><Badge tone="indigo"><ShieldCheck className="mr-1 inline h-3 w-3" />{t('users.totpOn')}</Badge></span>}{(u.passkeyCount ?? 0) > 0 && <span title={t('account.passkey.title')}><Badge tone="indigo"><Fingerprint className="mr-1 inline h-3 w-3" />{u.passkeyCount}</Badge></span>}</span></td>
+                      <td><span className="flex flex-wrap gap-1"><Badge tone={u.active ? 'success' : 'neutral'} dot>{u.active ? t('users.active') : t('users.disabled')}</Badge>{u.totpEnabled && <span title={t('account.totp.title')}><Badge tone="accent"><ShieldCheck className="mr-1 inline h-3 w-3" />{t('users.totpOn')}</Badge></span>}{(u.passkeyCount ?? 0) > 0 && <span title={t('account.passkey.title')}><Badge tone="accent"><Fingerprint className="mr-1 inline h-3 w-3" />{u.passkeyCount}</Badge></span>}</span></td>
                       <td>{u.lastLoginAt ? <span title={formatDate(u.lastLoginAt, true)}>{formatRelative(u.lastLoginAt)}</span> : t('users.never')}</td>
                       <td>{formatDate(u.createdAt)}</td>
                       <td>
@@ -75,7 +78,7 @@ export default function UsersPage() {
                             <Button size="sm" variant="ghost" icon={KeyRound} onClick={() => setPw(u)}>{t('auth.password')}</Button>
                             {u.totpEnabled && <Button size="sm" variant="ghost" icon={ShieldOff} title={t('users.totpReset')} onClick={() => setTotpReset(u)} />}
                             {(u.passkeyCount ?? 0) > 0 && <Button size="sm" variant="ghost" icon={Fingerprint} title={t('users.passkeyReset')} onClick={() => setPasskeyReset(u)} />}
-                            <Button size="sm" variant="ghost" icon={Trash2} onClick={() => setDel(u)} disabled={u.id === me?.id} />
+                            <Button size="sm" variant="ghost" icon={Trash2} title={t('common.delete')} onClick={() => setDel(u)} disabled={u.id === me?.id} />
                           </> : <span className="text-xs text-slate-500">{t('users.higherRole')}</span>}
                         </div>
                       </td>
@@ -107,6 +110,7 @@ function RolesCard() {
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ['roles'], queryFn: () => api.get<RolesResponse>('/api/users/roles') });
   const [form, setForm] = useState<{ operator: Set<string>; viewer: Set<string> } | null>(null);
+  useUnsavedChanges(form !== null);
   const current = form ?? (q.data ? { operator: new Set(q.data.roles.operator), viewer: new Set(q.data.roles.viewer) } : null);
   const save = useMutation({
     mutationFn: () => api.put('/api/users/roles', { operator: [...current!.operator], viewer: [...current!.viewer] }),
@@ -161,14 +165,14 @@ function RoleGroupRows({ group, current, ro, toggle }: { group: CapabilityGroup;
         <td colSpan={4} className="border-l-2 border-indigo-500 bg-slate-800/95 px-3 py-2 backdrop-blur">
           <div className="flex flex-wrap items-center gap-3">
             <span className="flex items-center gap-2 text-sm font-semibold text-slate-100"><Icon className="h-4 w-4 text-indigo-300" />{group.label}</span>
-            <Badge tone="slate">{t('users.rightCount', { count: total })}</Badge>
+            <Badge tone="neutral">{t('users.rightCount', { count: total })}</Badge>
             <span className="ml-auto text-xs text-slate-400">{t('role.operator')} <span className="font-medium text-slate-200">{on(current.operator)}/{total}</span> · {t('role.viewer')} <span className="font-medium text-slate-200">{on(current.viewer)}/{total}</span></span>
           </div>
         </td>
       </tr>
       {group.caps.map((c) => (
         <tr key={c.key}>
-          <td><span className="text-slate-100">{c.label}</span>{c.danger && <Badge tone="amber" className="ml-2">{t('users.critical')}</Badge>}<p className="font-mono text-[10px] text-slate-500">{c.key}</p></td>
+          <td><span className="text-slate-100">{c.label}</span>{c.danger && <Badge tone="warning" className="ml-2">{t('users.critical')}</Badge>}<p className="font-mono text-[10px] text-slate-500">{c.key}</p></td>
           <td className="text-center"><input type="checkbox" className="h-4 w-4" checked disabled /></td>
           <td className="text-center"><input type="checkbox" className="h-4 w-4" checked={current.operator.has(c.key)} disabled={ro} onChange={() => toggle('operator', c.key)} /></td>
           <td className="text-center"><input type="checkbox" className="h-4 w-4" checked={current.viewer.has(c.key)} disabled={ro} onChange={() => toggle('viewer', c.key)} /></td>
@@ -178,7 +182,7 @@ function RoleGroupRows({ group, current, ro, toggle }: { group: CapabilityGroup;
   );
 }
 
-const INVITE_TONE: Record<Invite['status'], 'green' | 'slate' | 'amber' | 'red'> = { active: 'green', used: 'slate', expired: 'amber', revoked: 'red' };
+const INVITE_TONE: Record<Invite['status'], 'success' | 'neutral' | 'warning' | 'danger'> = { active: 'success', used: 'neutral', expired: 'warning', revoked: 'danger' };
 
 function InvitesCard() {
   const { user: me } = useAuth();

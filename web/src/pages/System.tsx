@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { clsx } from 'clsx';
 import { Bell, CalendarClock, CheckCircle2, Download, HeartPulse, History, RefreshCw, RotateCcw, Save, XCircle, Package } from 'lucide-react';
 import { api, errorMessage } from '../api/client';
 import { SelfUpdateTab } from '../components/SelfUpdateTab';
@@ -10,7 +9,8 @@ import type { NotificationSettings, NotificationState, UpdateSummary, WatchdogSt
 import { useAuth } from '../lib/auth';
 import { formatDate, formatRelative, formatTime } from '../lib/format';
 import { useT } from '../i18n';
-import { Badge, Button, Card, ConfirmDialog, EmptyState, ErrorBox, Field, FullPageSpinner, KV, PageHeader, Toggle } from '../components/ui';
+import { useUnsavedChanges } from '../lib/unsaved';
+import { Badge, Button, Card, ConfirmDialog, EmptyState, ErrorBox, Field, FullPageSpinner, KV, PageHeader, Toggle, Alert, StatusText, TabBar } from '../components/ui';
 import { NotificationForm } from '../components/NotificationForm';
 
 type Tab = 'watchdog' | 'notifications' | 'update' | 'webinterface' | 'autoupdate';
@@ -21,13 +21,13 @@ export default function SystemPage() {
   return (
     <div>
       <PageHeader title={t('system.title')} description={t('system.description')} />
-      <div className="mb-4 flex w-fit max-w-full flex-wrap gap-1 rounded-lg border border-slate-800 bg-slate-900/60 p-1">
-        {([['watchdog', t('system.tab.watchdog'), HeartPulse], ['notifications', t('system.tab.notifications'), Bell], ['update', t('system.tab.update'), Download], ['webinterface', t('system.tab.webinterface'), Package], ['autoupdate', t('system.tab.autoupdate'), CalendarClock]] as const).map(([key, label, Icon]) => (
-          <button key={key} onClick={() => setTab(key)} className={clsx('flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition', tab === key ? 'bg-indigo-500/20 text-indigo-200' : 'text-slate-400 hover:text-slate-100')}>
-            <Icon className="h-4 w-4" />{label}
-          </button>
-        ))}
-      </div>
+      <TabBar value={tab} onChange={setTab} label={t('system.title')} items={[
+        { value: 'watchdog', label: t('system.tab.watchdog'), icon: HeartPulse },
+        { value: 'notifications', label: t('system.tab.notifications'), icon: Bell },
+        { value: 'update', label: t('system.tab.update'), icon: Download },
+        { value: 'webinterface', label: t('system.tab.webinterface'), icon: Package },
+        { value: 'autoupdate', label: t('system.tab.autoupdate'), icon: CalendarClock },
+      ]} />
       {tab === 'watchdog' && <WatchdogTab />}
       {tab === 'notifications' && <NotificationsTab />}
       {tab === 'update' && <UpdateTab />}
@@ -44,6 +44,7 @@ function WatchdogTab() {
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ['system', 'watchdog'], queryFn: () => api.get<WatchdogState>('/api/system/watchdog'), refetchInterval: 10000 });
   const [form, setForm] = useState<WatchdogState['settings'] | null>(null);
+  useUnsavedChanges(form !== null);
   const s = form ?? q.data?.settings;
   const save = useMutation({
     mutationFn: () => api.put('/api/system/watchdog', { enabled: s!.enabled, intervalSec: s!.intervalSec, maxRestartsPerHour: s!.maxRestartsPerHour, startOnBoot: s!.startOnBoot }),
@@ -63,20 +64,19 @@ function WatchdogTab() {
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       <Card title={t('common.status')}>
         <KV items={[
-          { k: t('dash.watchdog'), v: <Badge tone={w.active ? 'green' : 'slate'} dot pulse={w.active}>{w.active ? t('system.wd.active') : t('system.wd.inactive')}</Badge> },
-          { k: t('dash.processControl'), v: w.configured ? t('system.wd.configured') : <Badge tone="red">{t('wizard.control.notConfigured')}</Badge> },
+          { k: t('dash.watchdog'), v: <Badge tone={w.active ? 'success' : 'neutral'} dot pulse={w.active}>{w.active ? t('system.wd.active') : t('system.wd.inactive')}</Badge> },
+          { k: t('dash.processControl'), v: w.configured ? t('system.wd.configured') : <Badge tone="danger">{t('wizard.control.notConfigured')}</Badge> },
           { k: t('system.wd.lastCheck'), v: w.lastCheck ? formatRelative(w.lastCheck) : '–' },
-          { k: t('system.wd.lastState'), v: w.lastStatus === true ? <Badge tone="green">{t('layout.running')}</Badge> : w.lastStatus === false ? <Badge tone="red">{t('layout.stopped')}</Badge> : '–' },
+          { k: t('system.wd.lastState'), v: w.lastStatus === true ? <Badge tone="success">{t('layout.running')}</Badge> : w.lastStatus === false ? <Badge tone="danger">{t('layout.stopped')}</Badge> : '–' },
           { k: t('system.wd.restartsHour'), v: `${w.restartsLastHour} / ${s.maxRestartsPerHour}` },
-          { k: t('system.wd.suspended'), v: s.suspended ? <Badge tone="amber">{t('common.yes')}</Badge> : t('common.no') },
-          { k: t('system.wd.gaveUp'), v: w.gaveUp ? <Badge tone="red">{t('common.yes')}</Badge> : t('common.no') },
-          { k: t('system.wd.lastAction'), v: w.lastAction ? <span className={w.lastAction.ok ? 'text-emerald-300' : 'text-rose-300'}>{w.lastAction.ok ? t('system.wd.startOk') : t('system.wd.startFailed')} · {formatRelative(w.lastAction.ts)}</span> : '–' },
+          { k: t('system.wd.suspended'), v: s.suspended ? <Badge tone="warning">{t('common.yes')}</Badge> : t('common.no') },
+          { k: t('system.wd.gaveUp'), v: w.gaveUp ? <Badge tone="danger">{t('common.yes')}</Badge> : t('common.no') },
+          { k: t('system.wd.lastAction'), v: w.lastAction ? <StatusText tone={w.lastAction.ok ? 'success' : 'danger'}>{w.lastAction.ok ? t('system.wd.startOk') : t('system.wd.startFailed')} · {formatRelative(w.lastAction.ts)}</StatusText> : '–' },
         ]} />
         {(w.gaveUp || s.suspended) && canWrite && (
-          <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200">
-            <p>{w.gaveUp ? t('system.wd.gaveUpNote') : t('system.wd.suspendedNote')}</p>
-            <Button className="mt-2" size="sm" variant="warning" icon={RotateCcw} loading={reset.isPending} onClick={() => reset.mutate()}>{t('system.wd.resume')}</Button>
-          </div>
+          <Alert tone="warning" className="mt-4" action={<Button size="sm" variant="warning" icon={RotateCcw} loading={reset.isPending} onClick={() => reset.mutate()}>{t('system.wd.resume')}</Button>}>
+            {w.gaveUp ? t('system.wd.gaveUpNote') : t('system.wd.suspendedNote')}
+          </Alert>
         )}
         <p className="mt-4 text-xs text-slate-500">{t('system.wd.explain')}</p>
       </Card>
@@ -110,6 +110,7 @@ function NotificationsTab() {
   const q = useQuery({ queryKey: ['system', 'notifications'], queryFn: () => api.get<{ settings: NotificationSettings; state: NotificationState; eventLabels: Record<string, string> }>('/api/system/notifications'), refetchInterval: 30000 });
   const [form, setForm] = useState<NotificationSettings | null>(null);
   useEffect(() => { if (q.data && !form) setForm(q.data.settings); }, [q.data, form]);
+  useUnsavedChanges(Boolean(form && q.data) && JSON.stringify(form) !== JSON.stringify(q.data?.settings));
   const save = useMutation({
     mutationFn: () => api.put('/api/system/notifications', form),
     onSuccess: () => { toast.success(t('account.notificationsSaved')); setForm(null); qc.invalidateQueries({ queryKey: ['system', 'notifications'] }); },
@@ -128,7 +129,7 @@ function NotificationsTab() {
     <div className="space-y-4">
       <p className="text-sm text-slate-400">{t('system.notif.intro')}</p>
       <NotificationForm value={form} onChange={(v) => setForm(v as NotificationSettings)} onSave={() => save.mutate()} onDiscard={() => setForm(q.data!.settings)} onTest={(ch) => test.mutate(ch)} saving={save.isPending} testing={test.isPending} dirty={dirty} readOnly={!isAdmin} ready={st.channels} eventLabels={q.data!.eventLabels} global mailFrom={st.mailFrom}
-        footerNote={st.lastError && <span className="ml-3 text-xs text-rose-300">{t('system.notif.lastError', { error: st.lastError })}</span>} />
+        footerNote={st.lastError && <StatusText tone="danger" className="ml-3 text-xs">{t('system.notif.lastError', { error: st.lastError })}</StatusText>} />
       <Card title={t('system.notif.history')} subtitle={st.lastSent ? t('system.notif.lastSent', { when: formatRelative(st.lastSent) }) : t('system.notif.nothingSent')} noPadding>
         {st.history.length === 0 ? <EmptyState icon={Bell} title={t('system.notif.none')} /> : (
           <ul className="max-h-72 divide-y divide-slate-800/70 overflow-y-auto text-sm">
@@ -136,7 +137,7 @@ function NotificationsTab() {
               <li key={i} className="flex flex-wrap items-center gap-3 px-4 py-2">
                 <span className="text-xs text-slate-500">{formatDate(h.ts, true)}</span>
                 <span className="font-medium text-slate-100">{h.title}</span>
-                <span className="ml-auto flex gap-1">{h.results.map((r, j) => <Badge key={j} tone={r.ok ? 'green' : 'red'} className="gap-1">{r.ok ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}{r.owner && r.owner !== 'system' ? `${r.owner}/` : ''}{r.channel}{r.error && <span title={r.error}> !</span>}</Badge>)}</span>
+                <span className="ml-auto flex gap-1">{h.results.map((r, j) => <Badge key={j} tone={r.ok ? 'success' : 'danger'} className="gap-1">{r.ok ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}{r.owner && r.owner !== 'system' ? `${r.owner}/` : ''}{r.channel}{r.error && <span title={r.error}> !</span>}</Badge>)}</span>
               </li>
             ))}
           </ul>
@@ -177,12 +178,12 @@ function UpdateTab() {
       <Card title={t('system.upd.versions')} actions={canWrite && <Button size="sm" icon={RefreshCw} loading={check.isPending} onClick={() => check.mutate()}>{t('system.upd.checkNow')}</Button>}>
         <KV items={[
           { k: t('system.upd.installed'), v: <span className="font-mono">{u.current || t('common.unknown')}</span> },
-          { k: t('system.upd.available'), v: u.latest ? <span className="flex items-center justify-end gap-2"><span className="font-mono">{u.latest}</span>{u.updateAvailable ? <Badge tone="amber">{t('system.upd.updateAvailable')}</Badge> : <Badge tone="green">{t('system.upd.upToDate')}</Badge>}</span> : '–' },
+          { k: t('system.upd.available'), v: u.latest ? <span className="flex items-center justify-end gap-2"><span className="font-mono">{u.latest}</span>{u.updateAvailable ? <Badge tone="warning">{t('system.upd.updateAvailable')}</Badge> : <Badge tone="success">{t('system.upd.upToDate')}</Badge>}</span> : '–' },
           { k: t('dash.checked'), v: u.checkedAt ? formatRelative(u.checkedAt) : '–' },
           { k: t('system.upd.previous'), v: u.previousVersion ? <span className="font-mono">{u.previousVersion}</span> : '–' },
         ]} />
-        {u.checkError && <p className="mt-3 text-xs text-rose-300">{u.checkError}</p>}
-        {u.controlConfigured === false && <p className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">{t('system.upd.noControl')}</p>}
+        {u.checkError && <StatusText tone="danger" className="mt-3 text-xs">{u.checkError}</StatusText>}
+        {u.controlConfigured === false && <Alert tone="warning" compact className="mt-3">{t('system.upd.noControl')}</Alert>}
         {u.latestUrl && <p className="mt-3 truncate font-mono text-[11px] text-slate-500" title={u.latestUrl}>{u.latestUrl}</p>}
         {isAdmin && (
           <div className="mt-5 space-y-3">
@@ -201,17 +202,16 @@ function UpdateTab() {
         subtitle={u.running ? t('system.upd.startedBy', { when: formatRelative(u.running.startedAt), by: u.running.by }) : u.lastResult ? `${runKind(u.lastResult.rollback)} ${u.lastResult.from ? `${u.lastResult.from} → ` : ''}${u.lastResult.to} · ${formatDate(u.lastResult.finishedAt, true)}` : undefined}
         actions={u.running && <RefreshCw className="h-4 w-4 animate-spin text-indigo-400" />} noPadding>
         {u.lastResult && !u.running && !u.lastResult.ok && u.lastResult.state && u.lastResult.state !== 'ok' && (
-          <div className="m-4 mb-0 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">
-            <p className="font-medium">{t('system.upd.unverifiedTitle')}</p>
-            <p className="mt-1">{u.lastResult.state === 'mismatch' ? t('system.upd.mismatchText', { seen: u.lastResult.seen ?? '?', target: u.lastResult.to }) : t('system.upd.unverifiedText')}</p>
-            <p className="mt-1 text-amber-200/80">{t('system.upd.unverifiedHint')}</p>
+          <Alert tone="warning" compact className="m-4 mb-0" title={t('system.upd.unverifiedTitle')}>
+            <p>{u.lastResult.state === 'mismatch' ? t('system.upd.mismatchText', { seen: u.lastResult.seen ?? '?', target: u.lastResult.to }) : t('system.upd.unverifiedText')}</p>
+            <p className="opacity-80">{t('system.upd.unverifiedHint')}</p>
             {isAdmin && u.previousVersion && <Button size="sm" variant="warning" icon={History} className="mt-2" onClick={() => setConfirmRollback(true)}>{t('system.upd.rollbackTo', { version: u.previousVersion })}</Button>}
-          </div>
+          </Alert>
         )}
         {steps.length === 0 ? <EmptyState icon={Download} title={t('system.upd.noneYet')} /> : (
           <ol className="max-h-96 space-y-1 overflow-y-auto p-4 font-mono text-xs">
-            {steps.map((s, i) => <li key={i} className="flex gap-3"><span className="shrink-0 text-slate-500">{formatTime(s.ts)}</span><span className={clsx(/^(FEHLER|ERROR)/.test(s.msg) ? 'text-rose-300' : /^(Warnung|Warning)/.test(s.msg) ? 'text-amber-300' : 'text-slate-200')}>{s.msg}</span></li>)}
-            {u.lastResult && !u.running && !u.lastResult.ok && <li className="text-rose-300">{t('common.error')}: {u.lastResult.error}</li>}
+            {steps.map((s, i) => <li key={i} className="flex gap-3"><span className="shrink-0 text-slate-500">{formatTime(s.ts)}</span><StatusText tone={/^(FEHLER|ERROR)/.test(s.msg) ? 'danger' : /^(Warnung|Warning)/.test(s.msg) ? 'warning' : 'neutral'} className={!/^(FEHLER|ERROR|Warnung|Warning)/.test(s.msg) ? 'text-slate-200' : undefined}>{s.msg}</StatusText></li>)}
+            {u.lastResult && !u.running && !u.lastResult.ok && <li><StatusText tone="danger">{t('common.error')}: {u.lastResult.error}</StatusText></li>}
           </ol>
         )}
       </Card>

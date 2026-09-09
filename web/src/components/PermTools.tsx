@@ -9,7 +9,7 @@ import type { GroupPermission, PermKind, PermPreset, PermResult } from '../api/t
 import { useT } from '../i18n';
 import { diffPerms, parsePermExport, PERM_EXPORT_FORMAT } from '../lib/permdiff';
 import { downloadJson, safeFileName } from '../lib/download';
-import { Badge, Button, Field, Modal, Toggle } from './ui';
+import { Badge, Button, Field, Modal, Toggle, Alert, StatusText } from './ui';
 import { SubjectPicker, subjectKey, type SubjectRef } from './SubjectPicker';
 
 export interface PermSubject { kind: PermKind; id: string; name: string; type?: number }
@@ -37,7 +37,7 @@ function ModeSelect({ mode, setMode, target }: { mode: Mode; setMode: (m: Mode) 
         </select>
       </Field>
       <p className="text-xs text-slate-500">{mode === 'merge' ? t('perms.tools.modeMergeHint') : t('perms.tools.modeReplaceHint')}</p>
-      {mode === 'replace' && isSensitiveSubject(target) && <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-amber-200">{t('perms.tools.sensitiveWarning', { name: target.name })}</p>}
+      {mode === 'replace' && isSensitiveSubject(target) && <Alert tone="warning" compact>{t('perms.tools.sensitiveWarning', { name: target.name })}</Alert>}
     </div>
   );
 }
@@ -167,18 +167,18 @@ export function PermTools({ subject, perms, canWrite, onChanged }: { subject: Pe
 
       <Modal open={dialog === 'import'} onClose={close} title={t('perms.import.title')} size="lg"
         footer={<><Button variant="ghost" onClick={close}>{t('common.cancel')}</Button>{importDiff && <Button variant={removeMissing ? 'warning' : 'primary'} loading={doImport.isPending} disabled={imported!.perms.length === 0} onClick={() => doImport.mutate()}>{t('perms.import.apply', { count: imported!.perms.length })}</Button>}</>}>
-        {imported?.error && <p className="text-sm text-rose-300">{imported.error}</p>}
+        {imported?.error && <StatusText tone="danger" className="text-sm">{imported.error}</StatusText>}
         {imported && importDiff && (
           <div className="space-y-3">
             <p className="text-sm text-slate-300">{t('perms.import.summary', { file: imported.fileName, count: imported.perms.length })}{imported.subject?.name && <span className="text-slate-500"> · {t('perms.import.from', { name: imported.subject.name, kind: imported.subject.kind ? td(`perms.kind.${imported.subject.kind}`, undefined, imported.subject.kind) : '' })}</span>}</p>
             <div className="flex flex-wrap gap-2 text-xs">
-              <Badge tone="green">{t('perms.compare.added', { count: importDiff.added })}</Badge>
-              <Badge tone="amber">{t('perms.compare.changed', { count: importDiff.changed })}</Badge>
-              <Badge tone="slate">{t('perms.compare.same', { count: importDiff.same })}</Badge>
-              <Badge tone={removeMissing ? 'red' : 'slate'}>{t('perms.compare.removed', { count: importDiff.removed })}</Badge>
+              <Badge tone="success">{t('perms.compare.added', { count: importDiff.added })}</Badge>
+              <Badge tone="warning">{t('perms.compare.changed', { count: importDiff.changed })}</Badge>
+              <Badge tone="neutral">{t('perms.compare.same', { count: importDiff.same })}</Badge>
+              <Badge tone={removeMissing ? 'danger' : 'neutral'}>{t('perms.compare.removed', { count: importDiff.removed })}</Badge>
             </div>
             <Toggle checked={removeMissing} onChange={setRemoveMissing} label={t('perms.import.removeMissing')} description={t('perms.import.removeMissingHint', { count: importDiff.removed })} />
-            {removeMissing && isSensitiveSubject(subject) && <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-amber-200">{t('perms.tools.sensitiveWarning', { name: subject.name })}</p>}
+            {removeMissing && isSensitiveSubject(subject) && <Alert tone="warning" compact>{t('perms.tools.sensitiveWarning', { name: subject.name })}</Alert>}
             <div className="max-h-72 overflow-auto rounded-lg border border-slate-800">
               <table className="table">
                 <thead><tr><th>{t('perms.th.permission')}</th><th>{t('perms.compare.current')}</th><th>{t('perms.compare.imported')}</th></tr></thead>
@@ -187,7 +187,7 @@ export function PermTools({ subject, perms, canWrite, onChanged }: { subject: Pe
                     <tr key={r.name} className={clsx(r.status === 'added' && 'bg-emerald-500/5', r.status === 'changed' && 'bg-amber-500/5', r.status === 'removed' && (removeMissing ? 'bg-rose-500/5' : 'opacity-50'))}>
                       <td className="font-mono text-xs">{r.name}</td>
                       <td className="font-mono text-xs">{r.a ? fmt(r.a) : '–'}</td>
-                      <td className="font-mono text-xs">{r.b ? fmt(r.b) : (removeMissing ? <span className="text-rose-300">{t('perms.compare.willRemove')}</span> : '–')}</td>
+                      <td className="font-mono text-xs">{r.b ? fmt(r.b) : (removeMissing ? <StatusText tone="danger">{t('perms.compare.willRemove')}</StatusText> : '–')}</td>
                     </tr>
                   ))}
                 </tbody>

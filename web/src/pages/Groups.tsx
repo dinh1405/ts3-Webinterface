@@ -2,16 +2,15 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { clsx } from 'clsx';
 import { Copy, Hash, KeyRound, Pencil, Plus, RefreshCw, Search, Shield, Trash2, UserPlus, Users, X } from 'lucide-react';
 import { api, errorMessage } from '../api/client';
 import type { Channel, ChannelGroup, ChannelGroupAssignment, DbClient, GroupMember, GroupsResponse, ServerGroup } from '../api/types';
 import { useAuth } from '../lib/auth';
 import { td, useT } from '../i18n';
-import { Badge, Button, Card, ConfirmDialog, EmptyState, ErrorBox, Field, FullPageSpinner, Modal, PageHeader, Spinner } from '../components/ui';
+import { Badge, Button, Card, ConfirmDialog, EmptyState, ErrorBox, Field, FullPageSpinner, Modal, PageHeader, Spinner, TabBar } from '../components/ui';
 
 type Kind = 'server' | 'channel';
-const TYPE_TONE: Record<number, 'slate' | 'green' | 'blue'> = { 0: 'slate', 1: 'green', 2: 'blue' };
+const TYPE_TONE: Record<number, 'neutral' | 'success' | 'info'> = { 0: 'neutral', 1: 'success', 2: 'info' };
 const typeLabel = (type: number) => td(`groups.type.${type}`, undefined, String(type));
 
 export function useGroups() {
@@ -35,13 +34,7 @@ export default function GroupsPage() {
           {canWrite && <Button variant="primary" icon={Plus} onClick={() => setCreateOpen(true)}>{kind === 'server' ? t('groups.createServer') : t('groups.createChannel')}</Button>}
         </>}
       />
-      <div className="mb-4 flex w-fit gap-1 rounded-lg border border-slate-800 bg-slate-900/60 p-1">
-        {([['server', t('groups.serverGroups'), Shield], ['channel', t('groups.channelGroups'), Hash]] as const).map(([key, label, Icon]) => (
-          <button key={key} onClick={() => setKind(key)} className={clsx('flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition', kind === key ? 'bg-indigo-500/20 text-indigo-200' : 'text-slate-400 hover:text-slate-100')}>
-            <Icon className="h-4 w-4" />{label}
-          </button>
-        ))}
-      </div>
+      <TabBar value={kind} onChange={setKind} label={t('groups.title')} items={[{ value: 'server', label: t('groups.serverGroups'), icon: Shield }, { value: 'channel', label: t('groups.channelGroups'), icon: Hash }]} />
       {groups.isLoading && <FullPageSpinner />}
       {groups.error && <ErrorBox error={groups.error} onRetry={() => groups.refetch()} />}
       {groups.data && (kind === 'server' ? <ServerGroupsTable data={groups.data} canWrite={canWrite} /> : <ChannelGroupsTable data={groups.data} canWrite={canWrite} />)}
@@ -74,9 +67,9 @@ function ServerGroupsTable({ data, canWrite }: { data: GroupsResponse; canWrite:
             <tbody>
               {list.map((g) => (
                 <tr key={g.sgid}>
-                  <td className="font-medium text-slate-100">{g.name} {g.sgid === data.defaults.serverGroup && <Badge tone="indigo" className="ml-1">{t('groups.default')}</Badge>}</td>
+                  <td className="font-medium text-slate-100">{g.name} {g.sgid === data.defaults.serverGroup && <Badge tone="accent" className="ml-1">{t('groups.default')}</Badge>}</td>
                   <td className="font-mono text-xs">{g.sgid}</td>
-                  <td><Badge tone={TYPE_TONE[g.type] || 'slate'}>{typeLabel(g.type)}</Badge></td>
+                  <td><Badge tone={TYPE_TONE[g.type] || 'neutral'}>{typeLabel(g.type)}</Badge></td>
                   <td>{g.type === 1 ? (g.memberCount === null ? <span className="text-xs text-slate-500" title={t('groups.allOthersHint')}>{t('groups.allOthers')}</span> : <button className="btn btn-ghost btn-sm" onClick={() => setMembers(g)}><Users className="h-3.5 w-3.5" /> {g.memberCount}</button>) : '–'}</td>
                   <td>
                     <div className="flex justify-end gap-1">
@@ -155,7 +148,7 @@ function MembersModal({ group, onClose, canWrite }: { group: ServerGroup | null;
                   <span className="text-slate-100">{c.nickname}</span>
                   <span className="truncate font-mono text-[11px] text-slate-500">{c.uid}</span>
                   <span className="ml-auto">
-                    {memberIds.has(c.cldbid) ? <Badge tone="green">{t('groups.member')}</Badge> : <Button size="sm" variant="primary" icon={UserPlus} onClick={() => add.mutate(c.cldbid)} loading={add.isPending && add.variables === c.cldbid}>{t('groups.add')}</Button>}
+                    {memberIds.has(c.cldbid) ? <Badge tone="success">{t('groups.member')}</Badge> : <Button size="sm" variant="primary" icon={UserPlus} onClick={() => add.mutate(c.cldbid)} loading={add.isPending && add.variables === c.cldbid}>{t('groups.add')}</Button>}
                   </span>
                 </li>
               ))}
@@ -192,11 +185,11 @@ function ChannelGroupsTable({ data, canWrite }: { data: GroupsResponse; canWrite
               {list.map((g) => (
                 <tr key={g.cgid}>
                   <td className="font-medium text-slate-100">{g.name}
-                    {g.cgid === data.defaults.channelGroup && <Badge tone="indigo" className="ml-1">{t('groups.default')}</Badge>}
-                    {g.cgid === data.defaults.channelAdminGroup && <Badge tone="amber" className="ml-1">{t('groups.channelAdmin')}</Badge>}
+                    {g.cgid === data.defaults.channelGroup && <Badge tone="accent" className="ml-1">{t('groups.default')}</Badge>}
+                    {g.cgid === data.defaults.channelAdminGroup && <Badge tone="warning" className="ml-1">{t('groups.channelAdmin')}</Badge>}
                   </td>
                   <td className="font-mono text-xs">{g.cgid}</td>
-                  <td><Badge tone={TYPE_TONE[g.type] || 'slate'}>{typeLabel(g.type)}</Badge></td>
+                  <td><Badge tone={TYPE_TONE[g.type] || 'neutral'}>{typeLabel(g.type)}</Badge></td>
                   <td>
                     <div className="flex justify-end gap-1">
                       <Button size="sm" variant="ghost" icon={Users} onClick={() => setAssign(g)}>{t('groups.assignments')}</Button>

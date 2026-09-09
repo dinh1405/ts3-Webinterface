@@ -58,8 +58,8 @@ export default function AuditPage() {
                       <tr key={e.id} className="cursor-pointer" onClick={() => setOpen(open === e.id ? null : e.id)}>
                         <td className="whitespace-nowrap text-xs text-slate-400">{formatDate(e.ts, true)}</td>
                         <td className="font-medium text-slate-100">{e.username}</td>
-                        <td><Badge tone={e.action.startsWith('auth') ? 'blue' : e.action.startsWith('server') ? 'amber' : e.action.includes('ban') || e.action.includes('kick') ? 'red' : e.action.startsWith('backup') || e.action.startsWith('snapshot') ? 'green' : e.action.startsWith('user') ? 'purple' : 'indigo'}>{e.action}</Badge></td>
-                        <td><Badge tone={e.ok ? 'green' : 'red'} dot>{e.ok ? t('common.ok') : t('common.error')}</Badge></td>
+                        <td><Badge tone={e.action.startsWith('auth') ? 'info' : e.action.startsWith('server') ? 'warning' : e.action.includes('ban') || e.action.includes('kick') ? 'danger' : e.action.startsWith('backup') || e.action.startsWith('snapshot') ? 'success' : e.action.startsWith('user') ? 'purple' : 'accent'}>{e.action}</Badge></td>
+                        <td><Badge tone={e.ok ? 'success' : 'danger'} dot>{e.ok ? t('common.ok') : t('common.error')}</Badge></td>
                         <td className="font-mono text-xs text-slate-400">{e.ip || '–'}</td>
                         <td className="max-w-md">
                           {open === e.id ? <pre className="whitespace-pre-wrap break-all rounded bg-slate-950/70 p-2 font-mono text-[11px] text-slate-300">{JSON.stringify(e.details, null, 2)}</pre> : <span className="block truncate text-xs text-slate-400" title={summary}>{summary || '–'}</span>}

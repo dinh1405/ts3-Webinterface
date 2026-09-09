@@ -7,9 +7,10 @@ import type { Backup, BackupSchedule, Snapshot } from '../api/types';
 import { useAuth } from '../lib/auth';
 import { formatBytes, formatDate, formatDurationMs, formatRelative, formatTime, weekdayNames } from '../lib/format';
 import { td, useT } from '../i18n';
-import { Badge, Button, Card, ConfirmDialog, EmptyState, ErrorBox, Field, FullPageSpinner, Modal, PageHeader, Toggle } from '../components/ui';
+import { useUrlAction } from '../lib/urlAction';
+import { Badge, Button, Card, ConfirmDialog, EmptyState, ErrorBox, Field, FullPageSpinner, Modal, PageHeader, Toggle, Alert, StatusText } from '../components/ui';
 
-const TRIGGER_TONE: Record<string, 'indigo' | 'green' | 'amber' | 'slate' | 'blue'> = { manual: 'indigo', schedule: 'green', 'pre-restore': 'amber', 'pre-update': 'amber', upload: 'blue', unknown: 'slate' };
+const TRIGGER_TONE: Record<string, 'accent' | 'success' | 'warning' | 'neutral' | 'info'> = { manual: 'accent', schedule: 'success', 'pre-restore': 'warning', 'pre-update': 'warning', upload: 'info', unknown: 'neutral' };
 const triggerLabel = (trigger: string) => td(`backups.trigger.${trigger}`, undefined, trigger);
 
 export default function BackupsPage() {
@@ -17,6 +18,7 @@ export default function BackupsPage() {
   const { t } = useT();
   const qc = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
+  useUrlAction('create', () => setCreateOpen(true));
   const [label, setLabel] = useState('');
   const [includeLogs, setIncludeLogs] = useState(false);
   const [includeSnapshot, setIncludeSnapshot] = useState(false);
@@ -68,8 +70,8 @@ export default function BackupsPage() {
         </>}
       />
 
-      {d?.running && <div className="mb-4 flex items-center gap-3 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-4 py-3 text-sm text-indigo-200"><RefreshCw className="h-4 w-4 animate-spin" /> {t('backups.running', { id: d.running.id, since: formatRelative(d.running.startedAt) })}</div>}
-      {d?.restoring && <div className="mb-4 flex items-center gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200"><RefreshCw className="h-4 w-4 animate-spin" /> {t('backups.restoring', { id: d.restoring.id })}</div>}
+      {d?.running && <Alert tone="accent" icon={RefreshCw} spinning className="mb-4">{t('backups.running', { id: d.running.id, since: formatRelative(d.running.startedAt) })}</Alert>}
+      {d?.restoring && <Alert tone="warning" icon={RefreshCw} spinning className="mb-4">{t('backups.restoring', { id: d.restoring.id })}</Alert>}
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <div className="space-y-4 xl:col-span-2">
@@ -88,18 +90,18 @@ export default function BackupsPage() {
                           {b.label && <p className="text-xs text-slate-400">{b.label}</p>}
                         </td>
                         <td className="whitespace-nowrap"><span title={formatDate(b.createdAt, true)}>{formatDate(b.createdAt)}</span><p className="text-xs text-slate-500">{b.createdBy}</p></td>
-                        <td><span className="flex flex-wrap gap-1"><Badge tone={TRIGGER_TONE[b.trigger] || 'slate'}>{triggerLabel(b.trigger)}</Badge>{b.snapshot && <span title={b.snapshot.serverName}><Badge tone="purple">Snapshot</Badge></span>}</span></td>
+                        <td><span className="flex flex-wrap gap-1"><Badge tone={TRIGGER_TONE[b.trigger] || 'neutral'}>{triggerLabel(b.trigger)}</Badge>{b.snapshot && <span title={b.snapshot.serverName}><Badge tone="purple">Snapshot</Badge></span>}</span></td>
                         <td className="whitespace-nowrap">{formatBytes(b.size)}</td>
                         <td className="text-xs text-slate-400">
                           {b.contents.length ? b.contents.join(', ') : '–'}{b.notes.length > 0 && <span className="ml-1 text-amber-400" title={b.notes.join('\n')}>⚠</span>}
-                          {b.dbIntegrity && <span className="ml-2 inline-block align-middle"><Badge tone={b.dbIntegrity === 'ok' ? 'green' : b.dbIntegrity === 'failed' ? 'red' : 'slate'}>{t(`backups.integrity.${b.dbIntegrity}`)}</Badge></span>}
+                          {b.dbIntegrity && <span className="ml-2 inline-block align-middle"><Badge tone={b.dbIntegrity === 'ok' ? 'success' : b.dbIntegrity === 'failed' ? 'danger' : 'neutral'}>{t(`backups.integrity.${b.dbIntegrity}`)}</Badge></span>}
                         </td>
                         <td>
                           <div className="flex justify-end gap-1">
-                            <Button size="sm" variant="ghost" icon={Info} onClick={() => setDetail(b)} />
+                            <Button size="sm" variant="ghost" icon={Info} title={t('backups.details')} onClick={() => setDetail(b)} />
                             {canDownload && <a className="btn btn-secondary btn-sm" href={`/api/backups/${encodeURIComponent(b.id)}/download`} title={t('files.downloadTitle')}><Download className="h-3.5 w-3.5" /></a>}
                             {isAdmin && <Button size="sm" variant="warning" icon={History} onClick={() => setRestoreId(b.id)} disabled={Boolean(d.restoring || d.running)}>Restore</Button>}
-                            {canWrite && <Button size="sm" variant="ghost" icon={Trash2} onClick={() => setDeleteId(b.id)} />}
+                            {canWrite && <Button size="sm" variant="ghost" icon={Trash2} title={t('common.delete')} onClick={() => setDeleteId(b.id)} />}
                           </div>
                         </td>
                       </tr>
@@ -130,7 +132,7 @@ export default function BackupsPage() {
             {[['ID', detail.id], [t('bans.th.created'), formatDate(detail.createdAt, true)], [t('bans.th.by'), detail.createdBy || '–'], [t('backups.th.kind'), triggerLabel(detail.trigger)], [t('files.th.size'), formatBytes(detail.size)], [t('bans.th.duration'), formatDurationMs(detail.durationMs)], [t('backups.dbMethod'), detail.dbMethod || '–'], [t('backups.integrity'), detail.dbIntegrity ? t(`backups.integrity.${detail.dbIntegrity}`) : '–'], [t('backups.ts3Version'), detail.ts3Version || '–'], [t('backups.th.contents'), detail.contents.join(', ') || '–']].map(([k, v]) => (
               <div key={k} className="flex justify-between gap-4 border-b border-slate-800/60 py-1"><dt className="text-slate-400">{k}</dt><dd className="text-right font-mono text-xs text-slate-200 break-all">{v}</dd></div>
             ))}
-            {detail.notes.length > 0 && <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">{detail.notes.map((n, i) => <p key={i}>{n}</p>)}</div>}
+            {detail.notes.length > 0 && <Alert tone="warning" compact>{detail.notes.map((n, i) => <p key={i}>{n}</p>)}</Alert>}
           </dl>
         )}
       </Modal>
@@ -143,9 +145,9 @@ export default function BackupsPage() {
         </div>} />
 
       <Modal open={Boolean(restoreResult)} onClose={() => setRestoreResult(null)} title={t('backups.restoreLog')} size="md" footer={<Button variant="primary" onClick={() => setRestoreResult(null)}>{t('common.close')}</Button>}>
-        {restoreResult?.snapshotId && <div className="mb-3 rounded-lg border border-indigo-500/30 bg-indigo-500/10 p-3 text-xs text-indigo-200">{t('backups.restoredSnapshot', { id: restoreResult.snapshotId })}</div>}
+        {restoreResult?.snapshotId && <Alert tone="accent" compact className="mb-3">{t('backups.restoredSnapshot', { id: restoreResult.snapshotId })}</Alert>}
         <ol className="space-y-1 font-mono text-xs">
-          {restoreResult?.steps.map((s, i) => <li key={i} className="flex gap-3"><span className="text-slate-500">{formatTime(s.ts)}</span><span className={/^(Fehler|Error)/.test(s.msg) ? 'text-rose-300' : 'text-slate-200'}>{s.msg}</span></li>)}
+          {restoreResult?.steps.map((s, i) => <li key={i} className="flex gap-3"><span className="text-slate-500">{formatTime(s.ts)}</span><StatusText tone={/^(Fehler|Error)/.test(s.msg) ? 'danger' : 'neutral'} className={/^(Fehler|Error)/.test(s.msg) ? undefined : 'text-slate-200'}>{s.msg}</StatusText></li>)}
         </ol>
       </Modal>
     </div>
@@ -203,9 +205,9 @@ function ScheduleCard() {
           <p>{t('backups.nextRun')}: <span className="text-slate-200">{q.data?.schedule.nextRun ? `${formatDate(q.data.schedule.nextRun)} (${formatRelative(q.data.schedule.nextRun)})` : t('backups.notScheduled')}</span></p>
           {q.data?.schedule.cron && <p>Cron: <span className="font-mono text-slate-300">{q.data.schedule.cron}</span></p>}
           {q.data?.schedule.lastRun && (
-            <p className="mt-1">{t('backups.lastRun')}: <span className={q.data.schedule.lastRun.ok ? 'text-emerald-300' : 'text-rose-300'}>{q.data.schedule.lastRun.ok ? t('system.upd.success') : t('system.upd.failed')}</span> {formatRelative(q.data.schedule.lastRun.at)}
+            <p className="mt-1">{t('backups.lastRun')}: <StatusText tone={q.data.schedule.lastRun.ok ? 'success' : 'danger'}>{q.data.schedule.lastRun.ok ? t('system.upd.success') : t('system.upd.failed')}</StatusText> {formatRelative(q.data.schedule.lastRun.at)}
               {q.data.schedule.lastRun.backupId && <span className="block font-mono text-[11px] text-slate-500">{q.data.schedule.lastRun.backupId}</span>}
-              {q.data.schedule.lastRun.error && <span className="block text-rose-300">{q.data.schedule.lastRun.error}</span>}
+              {q.data.schedule.lastRun.error && <StatusText tone="danger" className="block">{q.data.schedule.lastRun.error}</StatusText>}
             </p>
           )}
         </div>
@@ -241,7 +243,7 @@ function SnapshotsCard() {
       actions={canWrite && <Button size="sm" variant="primary" icon={Plus} loading={create.isPending} onClick={() => create.mutate()}>{t('backups.createSnapshot')}</Button>} noPadding>
       {q.error && <div className="p-4"><ErrorBox error={q.error} onRetry={() => q.refetch()} compact /></div>}
       {q.data && (q.data.snapshots.length === 0 ? <EmptyState icon={Camera} title={t('backups.noSnapshots')} /> : (
-        <table className="table">
+        <div className="overflow-x-auto"><table className="table">
           <thead><tr><th>Snapshot</th><th>Server</th><th>{t('bans.th.created')}</th><th>{t('files.th.size')}</th><th className="text-right">{t('common.actions')}</th></tr></thead>
           <tbody>
             {q.data.snapshots.map((s) => (
@@ -260,7 +262,7 @@ function SnapshotsCard() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       ))}
       <ConfirmDialog open={deleteId !== null} onClose={() => setDeleteId(null)} onConfirm={() => deleteId && del.mutate(deleteId)} loading={del.isPending} title={t('backups.deleteSnapshot')} message={<span className="font-mono text-xs">{deleteId}</span>} confirmLabel={t('common.delete')} />
       <ConfirmDialog open={deployId !== null} onClose={() => setDeployId(null)} onConfirm={() => deployId && deploy.mutate(deployId)} loading={deploy.isPending} title={t('backups.deployConfirm')} confirmLabel={t('backups.deploy')} tone="warning" requireText="EINSPIELEN"

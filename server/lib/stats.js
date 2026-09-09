@@ -162,3 +162,27 @@ export async function queryStats(range = '24h', { heatmapDays = 30 } = {}) {
 
   return { range, hours, bucketMs, points, summary, heatmap: hc.heatmap, heatmapWindowDays: days, heatmapSamples: hc.samples, timezone: tz };
 }
+
+/**
+ * Minutenwerte der letzten `minutes` Minuten (alt → neu) für Sparklines; fehlende Minuten sind null.
+ * 20 s zwischengespeichert, weil pro Minute nur eine Zeile dazukommt.
+ */
+let recentCache = { at: 0, minutes: 0, value: null };
+export async function recentSamples(minutes = 60) {
+  const now = Date.now();
+  if (recentCache.value && recentCache.minutes === minutes && now - recentCache.at < 20 * 1000) return recentCache.value;
+  const since = now - minutes * SAMPLE_MS;
+  const rows = await readRows(since);
+  const mk = () => Array.from({ length: minutes }, () => null);
+  const out = { minutes, clients: mk(), up: mk(), down: mk(), ping: mk() };
+  for (const r of rows) {
+    const i = Math.min(minutes - 1, Math.max(0, Math.floor((r.t - since) / SAMPLE_MS)));
+    if (r.c === null) continue;
+    out.clients[i] = r.c;
+    out.up[i] = r.up;
+    out.down[i] = r.dn;
+    out.ping[i] = r.ping;
+  }
+  recentCache = { at: now, minutes, value: out };
+  return out;
+}

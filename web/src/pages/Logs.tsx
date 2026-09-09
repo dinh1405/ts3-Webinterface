@@ -6,7 +6,7 @@ import { api } from '../api/client';
 import type { LogFile, LogLine } from '../api/types';
 import { formatBytes, formatDate } from '../lib/format';
 import { useT } from '../i18n';
-import { Badge, Button, Card, EmptyState, ErrorBox, PageHeader, Spinner, Toggle } from '../components/ui';
+import { Badge, Button, Card, EmptyState, ErrorBox, PageHeader, Spinner, Toggle, TabBar } from '../components/ui';
 
 type Tab = 'query' | 'files';
 const LEVELS = ['', 'ERROR', 'WARNING', 'INFO', 'DEBUG', 'DEVELOP'];
@@ -17,25 +17,19 @@ export default function LogsPage() {
   return (
     <div>
       <PageHeader title={t('logs.title')} description={t('logs.description')} />
-      <div className="mb-4 flex w-fit gap-1 rounded-lg border border-slate-800 bg-slate-900/60 p-1">
-        {([['query', t('logs.tab.query'), Terminal], ['files', t('logs.tab.files'), FileText]] as const).map(([key, label, Icon]) => (
-          <button key={key} onClick={() => setTab(key)} className={clsx('flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition', tab === key ? 'bg-indigo-500/20 text-indigo-200' : 'text-slate-400 hover:text-slate-100')}>
-            <Icon className="h-4 w-4" />{label}
-          </button>
-        ))}
-      </div>
+      <TabBar value={tab} onChange={setTab} label={t('logs.title')} items={[{ value: 'query', label: t('logs.tab.query'), icon: Terminal }, { value: 'files', label: t('logs.tab.files'), icon: FileText }]} />
       {tab === 'query' ? <QueryLog /> : <FileLogs />}
     </div>
   );
 }
 
-function levelTone(level: string): 'red' | 'amber' | 'blue' | 'slate' | 'green' {
+function levelTone(level: string): 'danger' | 'warning' | 'info' | 'neutral' | 'success' {
   switch (level.toUpperCase()) {
-    case 'ERROR': case 'CRITICAL': return 'red';
-    case 'WARNING': return 'amber';
-    case 'INFO': return 'blue';
-    case 'DEBUG': case 'DEVELOP': return 'slate';
-    default: return 'slate';
+    case 'ERROR': case 'CRITICAL': return 'danger';
+    case 'WARNING': return 'warning';
+    case 'INFO': return 'info';
+    case 'DEBUG': case 'DEVELOP': return 'neutral';
+    default: return 'neutral';
   }
 }
 
@@ -115,7 +109,7 @@ function QueryLog() {
           <input className="input w-48 pl-9" placeholder={t('logs.searchPlaceholder')} value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <Button variant="ghost" icon={auto ? Pause : Play} onClick={() => setAuto(!auto)}>{auto ? t('logs.live') : t('logs.paused')}</Button>
-        <Button variant="ghost" icon={RefreshCw} onClick={() => latest.refetch()} />
+        <Button variant="ghost" icon={RefreshCw} title={t('common.refresh')} onClick={() => latest.refetch()} />
       </>}
     >
       {latest.error ? <div className="p-4"><ErrorBox error={latest.error} onRetry={() => latest.refetch()} /></div> : (
@@ -158,7 +152,7 @@ function FileLogs() {
               <li key={f.name}>
                 <button onClick={() => setSelected(f.name)} className={clsx('flex w-full flex-col gap-0.5 border-b border-slate-800/60 px-4 py-2.5 text-left hover:bg-slate-800/40', name === f.name && 'bg-indigo-500/10')}>
                   <span className="flex items-center gap-2">
-                    <Badge tone={f.kind === 'instance' ? 'indigo' : f.kind === 'server' ? 'blue' : 'slate'}>{f.kind === 'instance' ? t('logs.kind.instance') : f.kind === 'server' ? t('logs.kind.server', { sid: String(f.sid) }) : t('logs.kind.other')}</Badge>
+                    <Badge tone={f.kind === 'instance' ? 'accent' : f.kind === 'server' ? 'info' : 'neutral'}>{f.kind === 'instance' ? t('logs.kind.instance') : f.kind === 'server' ? t('logs.kind.server', { sid: String(f.sid) }) : t('logs.kind.other')}</Badge>
                     <span className="truncate font-mono text-[11px] text-slate-300">{f.name}</span>
                   </span>
                   <span className="text-[11px] text-slate-500">{formatBytes(f.size)} · {formatDate(f.mtime)}</span>

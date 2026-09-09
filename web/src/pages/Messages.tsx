@@ -49,7 +49,7 @@ export default function MessagesPage() {
         </>} />
 
       <div className="grid gap-4 lg:grid-cols-5">
-        <Card className="lg:col-span-2" noPadding title={<span className="flex items-center gap-2"><Inbox className="h-4 w-4 text-indigo-400" /> {t('messages.inbox')}{d && d.unread > 0 && <Badge tone="indigo">{t('messages.unread', { count: d.unread })}</Badge>}</span>}>
+        <Card className="lg:col-span-2" noPadding title={<span className="flex items-center gap-2"><Inbox className="h-4 w-4 text-indigo-400" /> {t('messages.inbox')}{d && d.unread > 0 && <Badge tone="accent">{t('messages.unread', { count: d.unread })}</Badge>}</span>}>
           {list.isLoading && <FullPageSpinner />}
           {list.error && <div className="p-4"><ErrorBox error={list.error} onRetry={() => list.refetch()} /></div>}
           {d && (d.messages.length === 0 ? <EmptyState icon={Inbox} title={t('messages.none')} description={t('messages.noneHint')} /> : (
@@ -70,7 +70,7 @@ export default function MessagesPage() {
         </Card>
 
         <Card className="lg:col-span-3" title={current ? (current.subject || t('messages.noSubject')) : t('messages.detail')}
-          subtitle={current ? <span className="flex flex-wrap items-center gap-2"><User className="h-3.5 w-3.5" />{canHistory ? <Link to={`/history/${encodeURIComponent(current.uid)}`} className="hover:underline">{current.nickname || current.uid}</Link> : (current.nickname || current.uid)}<span className="text-slate-600">·</span>{formatDate(current.timestamp, true)}</span> : undefined}
+          subtitle={current ? <span className="flex flex-wrap items-center gap-2"><User className="h-3.5 w-3.5" />{canHistory ? <Link to={`/history/${encodeURIComponent(current.uid)}`} className="hover:underline">{current.nickname || current.uid}</Link> : (current.nickname || current.uid)}<span className="text-slate-500">·</span>{formatDate(current.timestamp, true)}</span> : undefined}
           actions={current && <div className="flex gap-1">
             <Button size="sm" variant="ghost" icon={current.read ? Mail : MailOpen} onClick={() => markRead.mutate({ id: current.id, read: !current.read })} title={current.read ? t('messages.markUnread') : t('messages.markRead')} />
             {canWrite && <Button size="sm" variant="ghost" icon={Trash2} onClick={() => setDeleteId(current.id)} title={t('common.delete')} />}

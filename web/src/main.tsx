@@ -7,7 +7,8 @@ import './index.css';
 import { AuthProvider, useAuth } from './lib/auth';
 import { EventsProvider } from './lib/events';
 import { Layout } from './components/Layout';
-import { FullPageSpinner } from './components/ui';
+import { FullPageSpinner, TooltipProvider } from './components/ui';
+import { initLocale } from './i18n';
 import { ApiError } from './api/client';
 import { useTheme } from './lib/theme';
 import LoginPage from './pages/Login';
@@ -36,6 +37,7 @@ const AuditPage = lazy(() => import('./pages/Audit'));
 const AccountPage = lazy(() => import('./pages/Account'));
 const HistoryPage = lazy(() => import('./pages/History'));
 const ClientProfilePage = lazy(() => import('./pages/ClientProfile'));
+const StyleguidePage = import.meta.env.DEV ? lazy(() => import('./pages/Styleguide')) : null;
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -108,18 +110,24 @@ const router = createBrowserRouter([
       { element: <RequireCap cap="backups.view" />, children: [{ path: 'backups', element: <BackupsPage /> }] },
       { element: <RequireCap cap="system.view" />, children: [{ path: 'system', element: <SystemPage /> }] },
       { element: <RequireCap cap="files.view" />, children: [{ path: 'files', element: <FilesPage /> }] },
+      ...(StyleguidePage ? [{ path: 'styleguide', element: <StyleguidePage /> }] : []),
       { path: '*', element: <Navigate to="/" replace /> },
     ],
   },
 ]);
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <RouterProvider router={router} />
-        <ThemedToaster />
-      </AuthProvider>
-    </QueryClientProvider>
-  </React.StrictMode>,
-);
+// Erst das Wörterbuch der Startsprache laden (eigener Chunk), dann rendern – so ist t() überall synchron.
+void initLocale().finally(() => {
+  ReactDOM.createRoot(document.getElementById('root')!).render(
+    <React.StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <AuthProvider>
+            <RouterProvider router={router} />
+            <ThemedToaster />
+          </AuthProvider>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </React.StrictMode>,
+  );
+});

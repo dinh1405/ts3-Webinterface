@@ -83,8 +83,8 @@ export function InstallServer({ platform, defaultOpen, onInstalled }: { platform
         {open ? <ChevronDown className="h-4 w-4 text-slate-500" /> : <ChevronRight className="h-4 w-4 text-slate-500" />}
         <PackagePlus className="h-4 w-4 text-indigo-400" />
         {t('wizard.setupInstall.toggle')}
-        {platform !== 'linux' && <Badge tone="slate" className="ml-2">{t('wizard.setupInstall.linuxOnly')}</Badge>}
-        {info?.latest && <Badge tone="indigo" className="ml-auto">TeamSpeak {info.latest.version}</Badge>}
+        {platform !== 'linux' && <Badge tone="neutral" className="ml-2">{t('wizard.setupInstall.linuxOnly')}</Badge>}
+        {info?.latest && <Badge tone="accent" className="ml-auto">TeamSpeak {info.latest.version}</Badge>}
       </button>
       {open && (
         <div className="space-y-4 border-t border-slate-800 px-4 py-4">
@@ -137,7 +137,7 @@ export function InstallServer({ platform, defaultOpen, onInstalled }: { platform
               <div className="mb-2 flex items-center gap-2 font-medium text-slate-100">
                 {!job.done && <Spinner className="h-4 w-4 text-indigo-400" />}
                 {t('wizard.setupInstall.jobTitle')}
-                {job.done && (job.ok ? <Badge tone="green">{t('wizard.query.resetOk')}</Badge> : <Badge tone="red">{t('wizard.query.resetFailed')}</Badge>)}
+                {job.done && (job.ok ? <Badge tone="success">{t('wizard.query.resetOk')}</Badge> : <Badge tone="danger">{t('wizard.query.resetFailed')}</Badge>)}
               </div>
               <ol className="space-y-1 text-xs">
                 {job.steps.map((s, i) => <li key={i} className={clsx('flex gap-2', s.key === 'failed' ? 'text-rose-300' : s.key === 'privilegeKeyMissing' || s.key === 'noChecksum' ? 'text-amber-300' : 'text-slate-300')}><span className="text-slate-500">{s.ts.slice(11, 19)}</span><span>{td(`wizard.setupInstall.step.${s.key}`, undefined, s.key)}{s.detail ? <span className="break-all text-slate-500"> · {s.detail}</span> : null}</span></li>)}

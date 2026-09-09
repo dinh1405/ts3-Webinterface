@@ -4,16 +4,17 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { clsx } from 'clsx';
 import {
-  Activity, ArrowDownToLine, ArrowRight, ArrowUpFromLine, Clock, Cpu, Hash, MessageSquare, Play, Power, RotateCw, Server, Square, Users, Wifi, Zap,
+  Activity, ArrowDownToLine, ArrowRight, ArrowUpFromLine, Cpu, Gauge, Hash, MessageSquare, Play, RotateCw, Server, Square, Users, Wifi, Zap,
 } from 'lucide-react';
 import { api, errorMessage } from '../api/client';
-import type { Channel, Client, ServerStatus, Ts3Event } from '../api/types';
+import type { Channel, Client, Overview, ServerStatus, Ts3Event } from '../api/types';
 import { useAuth } from '../lib/auth';
 import { useEvents } from '../lib/events';
 import { describeEvent, describeProcessDetail } from '../lib/events-text';
 import { countryFlag, formatBitrate, formatBytes, formatDate, formatDuration, formatRelative, formatTime } from '../lib/format';
 import { useT } from '../i18n';
-import { Badge, Button, Card, ConfirmDialog, EmptyState, ErrorBox, FullPageSpinner, KV, PageHeader, Stat } from '../components/ui';
+import { Alert, Badge, Button, Card, ConfirmDialog, EmptyState, ErrorBox, KV, PageHeader, PageSkeleton, StatTile, type Tone, StatusText } from '../components/ui';
+import { useUrlAction } from '../lib/urlAction';
 
 type Action = 'start' | 'stop' | 'restart';
 
@@ -28,6 +29,10 @@ export default function DashboardPage() {
   const actionLabel = (a: Action) => t(`dash.action.${a}`);
 
   const status = useQuery({ queryKey: ['status'], queryFn: () => api.get<ServerStatus>('/api/server/status'), refetchInterval: 10000 });
+  const overview = useQuery({ queryKey: ['overview'], queryFn: () => api.get<Overview>('/api/overview'), refetchInterval: 60000 });
+  const tree = useQuery({ queryKey: ['clients', 'tree'], queryFn: () => api.get<{ tree: Channel[]; clients: Client[] }>('/api/clients/tree'), refetchInterval: 15000, enabled: Boolean(queryStatus?.connected ?? status.data?.query.connected) });
+  const usedChannels = useMemo(() => { let n = 0; const walk = (list: Channel[]) => { for (const c of list) { if (c.clients.length > 0) n++; walk(c.children); } }; walk(tree.data?.tree ?? []); return n; }, [tree.data]);
+  useUrlAction('action', (v) => { if (canControl && (['start', 'stop', 'restart'] as string[]).includes(v)) setConfirm(v as Action); });
 
   const control = useMutation({
     mutationFn: (action: Action) => api.post<{ ok: boolean; output: string; durationMs: number }>(`/api/server/control/${action}`),
@@ -57,19 +62,44 @@ export default function DashboardPage() {
     onError: (e) => toast.error(errorMessage(e)),
   });
 
-  if (status.isLoading) return <FullPageSpinner />;
+  if (status.isLoading) return <PageSkeleton />;
   if (status.error) return <ErrorBox error={status.error} onRetry={() => status.refetch()} />;
   const s = status.data!;
   const running = s.process.running;
   const connected = queryStatus?.connected ?? s.query.connected;
   const cur = s.current;
   const host = s.host;
+  const sp = overview.data?.spark;
+  const clientsNow = cur ? Math.max(0, Number(cur.virtualserverClientsonline) - Number(cur.virtualserverQueryclientsonline || 0)) : null;
+  const bwUp = cur ? Number(cur.connectionBandwidthSentLastSecondTotal) || 0 : null;
+  const bwDown = cur ? Number(cur.connectionBandwidthReceivedLastSecondTotal) || 0 : null;
+  const pingNow = cur ? Number(cur.virtualserverTotalPing) : null;
+  const lossPct = cur ? (Number(cur.virtualserverTotalPacketlossTotal) * 100).toFixed(2) : null;
+  const firstOf = (arr?: (number | null)[]) => arr?.find((v) => v !== null) ?? null;
+  const MINUS = String.fromCharCode(0x2212);
+  const clientsTrend = ((): { text: string; tone: Tone } => {
+    const first = firstOf(sp?.clients);
+    if (first === null || clientsNow === null) return { text: t('dash.trend.noData'), tone: 'neutral' };
+    const d = clientsNow - first;
+    return d === 0 ? { text: t('dash.trend.stable'), tone: 'neutral' } : { text: t('dash.trend.lastHour', { delta: `${d > 0 ? '+' : MINUS}${Math.abs(d)}` }), tone: d > 0 ? 'success' : 'neutral' };
+  })();
+  const pingTrend = ((): { text: string; tone: Tone } => {
+    const first = firstOf(sp?.ping);
+    if (first === null || pingNow === null || !Number.isFinite(pingNow)) return { text: t('dash.trend.noData'), tone: 'neutral' };
+    const d = pingNow - first;
+    if (Math.abs(d) < 0.5) return { text: t('dash.trend.stable'), tone: 'neutral' };
+    return { text: `${d > 0 ? '+' : MINUS}${Math.abs(d).toFixed(1)} ms`, tone: d > 5 ? 'warning' : d < 0 ? 'success' : 'neutral' };
+  })();
+  const bwSpark = sp ? sp.up.map((u, i) => (u === null && sp.down[i] === null ? null : (u ?? 0) + (sp.down[i] ?? 0))) : undefined;
+  const description = s.version
+    ? `${t('dash.versionLine', { version: s.version.version, build: s.version.build, platform: s.version.platform })}${cur ? ` · ${t('dash.uptime')} ${formatDuration(cur.virtualserverUptime)}` : ''}`
+    : t('dash.subtitle');
 
   return (
     <div>
       <PageHeader
         title={t('dash.title')}
-        description={s.version ? t('dash.versionLine', { version: s.version.version, build: s.version.build, platform: s.version.platform }) : t('dash.subtitle')}
+        description={description}
         actions={(canControl || canMessage) && (
           <>
             {canMessage && <Button variant="ghost" icon={MessageSquare} onClick={() => setBroadcastOpen(true)} disabled={!connected}>{t('dash.broadcast')}</Button>}
@@ -80,28 +110,17 @@ export default function DashboardPage() {
         )}
       />
 
-      {s.busy && (
-        <div className="mb-4 flex items-center gap-3 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-4 py-3 text-sm text-indigo-200">
-          <RotateCw className="h-4 w-4 animate-spin" /> {t('dash.busy', { action: (['start', 'stop', 'restart'] as Action[]).includes(s.busy.action as Action) ? actionLabel(s.busy.action as Action) : s.busy.action, since: formatRelative(s.busy.startedAt) })}
-        </div>
-      )}
-      {!s.control.configured && (
-        <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
-          {t('dash.controlNotConfigured')}
-        </div>
-      )}
-      {!connected && (
-        <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
-          <p className="font-medium">{t('dash.noQuery')}</p>
-          <p className="text-xs opacity-80">{s.query.lastError || t('dash.connecting')}{s.query.nextReconnectAt && t('dash.nextTry', { when: formatRelative(s.query.nextReconnectAt) })}</p>
-        </div>
-      )}
+      <div className="mb-4 space-y-3 empty:hidden">
+        {s.busy && <Alert tone="accent" icon={RotateCw} spinning>{t('dash.busy', { action: (['start', 'stop', 'restart'] as Action[]).includes(s.busy.action as Action) ? actionLabel(s.busy.action as Action) : s.busy.action, since: formatRelative(s.busy.startedAt) })}</Alert>}
+        {!s.control.configured && <Alert tone="warning">{t('dash.controlNotConfigured')}</Alert>}
+        {!connected && <Alert tone="warning" title={t('dash.noQuery')}><p className="text-xs">{s.query.lastError || t('dash.connecting')}{s.query.nextReconnectAt && t('dash.nextTry', { when: formatRelative(s.query.nextReconnectAt) })}</p></Alert>}
+      </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat label={t('dash.process')} value={running ? t('dash.running') : running === false ? t('dash.stopped') : t('common.unknown')} sub={s.process.pid ? `PID ${s.process.pid}` : describeProcessDetail(s.process.detail)} icon={Power} tone={running ? 'green' : running === false ? 'red' : 'slate'} />
-        <Stat label={t('dash.clientsOnline')} value={cur ? `${Math.max(0, Number(cur.virtualserverClientsonline) - Number(cur.virtualserverQueryclientsonline || 0))} / ${cur.virtualserverMaxclients}` : '–'} sub={cur ? t('dash.reservedSlots', { reserved: String(cur.virtualserverReservedSlots ?? 0), query: String(cur.virtualserverQueryclientsonline ?? 0) }) : t('dash.queryDisconnected')} icon={Users} tone="indigo" />
-        <Stat label={t('dash.uptime')} value={cur ? formatDuration(cur.virtualserverUptime) : '–'} sub={host ? t('dash.instance', { uptime: formatDuration(host.instanceUptime) }) : undefined} icon={Clock} tone="blue" />
-        <Stat label={t('dash.channels')} value={cur ? String(cur.virtualserverChannelsonline) : '–'} sub={cur ? t('dash.pingLoss', { ping: Number(cur.virtualserverTotalPing).toFixed(1), loss: (Number(cur.virtualserverTotalPacketlossTotal) * 100).toFixed(2) }) : undefined} icon={Hash} tone="purple" />
+        <StatTile label={t('dash.clientsOnline')} value={clientsNow ?? '–'} unit={cur ? `/ ${cur.virtualserverMaxclients}` : undefined} icon={Users} tone="accent" trend={clientsTrend} spark={sp?.clients} />
+        <StatTile label={t('dash.tile.bandwidth')} value={bwUp !== null && bwDown !== null ? formatBitrate(bwUp + bwDown) : '–'} icon={Activity} tone="info" trend={bwUp !== null && bwDown !== null ? { text: t('dash.trend.upDown', { up: formatBitrate(bwUp), down: formatBitrate(bwDown) }), tone: 'neutral' } : undefined} spark={bwSpark} />
+        <StatTile label={t('dash.tile.ping')} value={pingNow !== null && Number.isFinite(pingNow) ? pingNow.toFixed(1) : '–'} unit={pingNow !== null ? 'ms' : undefined} icon={Gauge} tone="success" trend={pingTrend} spark={sp?.ping} />
+        <StatTile label={t('dash.channels')} value={cur ? String(cur.virtualserverChannelsonline) : '–'} sub={cur ? t('dash.tile.channelsSub', { used: tree.data ? usedChannels : '–', loss: lossPct ?? '–' }) : undefined} icon={Hash} tone="purple" trend={cur ? { text: t('dash.tile.activeCount', { count: Number(cur.virtualserverChannelsonline) || 0 }), tone: 'neutral' } : undefined} />
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -110,7 +129,7 @@ export default function DashboardPage() {
             <KV items={[
               { k: t('common.name'), v: String(cur.virtualserverName) },
               { k: t('common.port'), v: String(cur.virtualserverPort) },
-              { k: t('common.status'), v: <Badge tone={cur.virtualserverStatus === 'online' ? 'green' : 'amber'}>{String(cur.virtualserverStatus)}</Badge> },
+              { k: t('common.status'), v: <Badge tone={cur.virtualserverStatus === 'online' ? 'success' : 'warning'}>{String(cur.virtualserverStatus)}</Badge> },
               { k: t('dash.serverId'), v: String(cur.virtualserverId ?? s.servers[0]?.id ?? '–') },
               { k: t('dash.created'), v: formatDate(Number(cur.virtualserverCreated)) },
               { k: t('dash.uniqueId'), v: <span className="font-mono text-xs">{String(cur.virtualserverUniqueIdentifier)}</span> },
@@ -129,20 +148,20 @@ export default function DashboardPage() {
         <div className="space-y-4">
           <Card title={t('dash.query')}>
             <KV items={[
-              { k: t('common.status'), v: <Badge tone={connected ? 'green' : 'amber'} dot pulse={connected}>{connected ? t('dash.connected') : s.query.connecting ? t('dash.connectingShort') : t('dash.disconnected')}</Badge> },
+              { k: t('common.status'), v: <Badge tone={connected ? 'success' : 'warning'} dot pulse={connected}>{connected ? t('dash.connected') : s.query.connecting ? t('dash.connectingShort') : t('dash.disconnected')}</Badge> },
               { k: t('dash.target'), v: <span className="font-mono text-xs">{s.query.host}:{s.query.port} ({s.query.protocol})</span> },
               { k: t('common.user'), v: s.query.username },
               { k: t('dash.since'), v: s.query.connectedSince ? formatRelative(s.query.connectedSince) : '–' },
             ]} />
-            {s.query.lastError && !connected && <p className="mt-3 text-xs text-amber-300">{s.query.lastError}</p>}
+            {s.query.lastError && !connected && <StatusText tone="warning" className="mt-3 text-xs">{s.query.lastError}</StatusText>}
           </Card>
           <Card title={t('dash.processControl')}>
             <KV items={[
-              { k: t('dash.mode'), v: <Badge tone="indigo">{td(`wizard.control.mode.${s.control.mode}`, undefined, s.control.mode)}</Badge> },
+              { k: t('dash.mode'), v: <Badge tone="accent">{td(`wizard.control.mode.${s.control.mode}`, undefined, s.control.mode)}</Badge> },
               { k: 'PID', v: s.process.pid ? String(s.process.pid) : '–' },
               { k: t('dash.started'), v: s.process.startedAt ? formatDate(s.process.startedAt) : '–' },
               { k: t('dash.checked'), v: formatRelative(s.process.checkedAt) },
-              { k: t('dash.watchdog'), v: s.watchdog ? <Badge tone={!s.watchdog.enabled ? 'slate' : s.watchdog.gaveUp ? 'red' : s.watchdog.suspended ? 'amber' : 'green'} dot>{!s.watchdog.enabled ? t('dash.wdOff') : s.watchdog.gaveUp ? t('dash.wdGaveUp') : s.watchdog.suspended ? t('dash.wdSuspended') : t('dash.wdActive')}</Badge> : '–' },
+              { k: t('dash.watchdog'), v: s.watchdog ? <Badge tone={!s.watchdog.enabled ? 'neutral' : s.watchdog.gaveUp ? 'danger' : s.watchdog.suspended ? 'warning' : 'success'} dot>{!s.watchdog.enabled ? t('dash.wdOff') : s.watchdog.gaveUp ? t('dash.wdGaveUp') : s.watchdog.suspended ? t('dash.wdSuspended') : t('dash.wdActive')}</Badge> : '–' },
             ]} />
             <p className="mt-2 truncate font-mono text-[11px] text-slate-500" title={s.control.detail}>{describeProcessDetail(s.control.detail)}</p>
           </Card>
@@ -163,7 +182,7 @@ export default function DashboardPage() {
                       <td className="font-mono text-xs">{v.id}</td>
                       <td className="font-medium text-slate-100">{v.name}</td>
                       <td>{v.port}</td>
-                      <td><Badge tone={v.status === 'online' ? 'green' : 'red'} dot>{v.status}</Badge></td>
+                      <td><Badge tone={v.status === 'online' ? 'success' : 'danger'} dot>{v.status}</Badge></td>
                       <td>{v.clientsonline} / {v.maxclients}</td>
                       <td>{v.status === 'online' ? formatDuration(v.uptime) : '–'}</td>
                       <td>{v.autostart ? t('common.yes') : t('common.no')}</td>
@@ -248,7 +267,7 @@ function OnlineClientsCard({ connected }: { connected: boolean }) {
   }, [tree.data]);
   const clients = useMemo(() => [...(tree.data?.clients ?? [])].sort((a, b) => a.nickname.localeCompare(b.nickname)), [tree.data]);
   return (
-    <Card title={<span>{t('dash.onlineClients')} {clients.length > 0 && <Badge tone="indigo" className="ml-1">{clients.length}</Badge>}</span>} subtitle={t('dash.onlineSubtitle')}
+    <Card title={<span>{t('dash.onlineClients')} {clients.length > 0 && <Badge tone="accent" className="ml-1">{clients.length}</Badge>}</span>} subtitle={t('dash.onlineSubtitle')}
       actions={<Link to="/clients" className="btn btn-ghost btn-sm">{t('dash.channelTree')} <ArrowRight className="h-3.5 w-3.5" /></Link>} noPadding>
       {!connected ? <EmptyState icon={Users} title={t('dash.queryDisconnectedTitle')} description={t('dash.queryDisconnectedHint')} />
         : tree.error ? <div className="p-4"><ErrorBox error={tree.error} onRetry={() => tree.refetch()} compact /></div>

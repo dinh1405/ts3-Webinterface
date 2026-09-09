@@ -3,7 +3,7 @@ import { KeyRound, ShieldCheck } from 'lucide-react';
 import { setupApi, SETUP_TOKEN_KEY } from '../../api/setup';
 import { errorMessage } from '../../api/client';
 import { useT } from '../../i18n';
-import { Button, Field, Spinner } from '../../components/ui';
+import { Button, Field, Spinner, Alert } from '../../components/ui';
 import { Code, Note } from '../../components/setup/common';
 import { AuthShell } from '../Login';
 
@@ -69,7 +69,7 @@ export function TokenGate({ children }: { children: ReactNode }) {
         <Field label={t('wizard.token.label')} htmlFor="token">
           <input id="token" className="input font-mono" autoFocus autoComplete="off" spellCheck={false} value={input} onChange={(e) => setInput(e.target.value)} required />
         </Field>
-        {error && <p className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">{error}</p>}
+        {error && <Alert tone="danger" compact>{error}</Alert>}
         <Button type="submit" variant="primary" className="w-full" loading={busy} icon={KeyRound}>{t('wizard.token.continue')}</Button>
       </form>
       <p className="mt-4 flex items-start gap-2 text-[11px] text-slate-500"><ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />{t('wizard.token.why')}</p>

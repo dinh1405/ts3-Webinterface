@@ -5,7 +5,7 @@ import { UserPlus } from 'lucide-react';
 import { api, errorMessage } from '../api/client';
 import { useAuth } from '../lib/auth';
 import { useT } from '../i18n';
-import { Badge, Button, Field, Spinner } from '../components/ui';
+import { Badge, Button, Field, Spinner, Alert } from '../components/ui';
 import { AuthShell } from './Login';
 
 export default function RegisterPage() {
@@ -43,7 +43,7 @@ export default function RegisterPage() {
   if (!check.data?.valid) {
     return (
       <AuthShell title={t('register.title')}>
-        <p className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">{check.data?.error || errorMessage(check.error) || t('register.invalid')}</p>
+        <Alert tone="danger" compact>{check.data?.error || errorMessage(check.error) || t('register.invalid')}</Alert>
         <Button className="mt-4 w-full" variant="ghost" onClick={() => navigate('/login')}>{t('auth.toLogin')}</Button>
       </AuthShell>
     );
@@ -51,13 +51,13 @@ export default function RegisterPage() {
   const inv = check.data;
   return (
     <AuthShell title={t('register.createTitle')} subtitle={t('register.invitedBy', { by: inv.createdBy ?? '', note: inv.note ? ` – ${inv.note}` : '' })}>
-      <p className="mb-4 text-sm text-slate-400">{t('register.role')} <Badge tone={inv.role === 'admin' ? 'red' : inv.role === 'operator' ? 'indigo' : 'slate'}>{td(`role.${inv.role}`, undefined, inv.role)}</Badge></p>
+      <p className="mb-4 text-sm text-slate-400">{t('register.role')} <Badge tone={inv.role === 'admin' ? 'danger' : inv.role === 'operator' ? 'accent' : 'neutral'}>{td(`role.${inv.role}`, undefined, inv.role)}</Badge></p>
       <form onSubmit={onSubmit} className="space-y-4">
         <Field label={t('auth.username')} htmlFor="username" hint={t('auth.usernameHint')}><input id="username" className="input" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} required autoFocus /></Field>
         <Field label={t('auth.displayNameOptional')} htmlFor="displayName"><input id="displayName" className="input" value={displayName} onChange={(e) => setDisplayName(e.target.value)} /></Field>
         <Field label={t('auth.password')} htmlFor="password" hint={t('auth.passwordHint')}><input id="password" type="password" className="input" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={10} /></Field>
         <Field label={t('auth.repeatPassword')} htmlFor="confirm"><input id="confirm" type="password" className="input" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required /></Field>
-        {error && <p className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">{error}</p>}
+        {error && <Alert tone="danger" compact>{error}</Alert>}
         <Button type="submit" variant="primary" className="w-full" loading={loading} icon={UserPlus}>{t('register.create')}</Button>
       </form>
     </AuthShell>

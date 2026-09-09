@@ -82,10 +82,10 @@ export function StepControl({ draft, updateTs3, state, mode, onTested }: StepPro
           {test.error && <span className="text-sm text-rose-300">{errorMessage(test.error)}</span>}
           {result && (
             <span className="flex items-center gap-2 text-sm">
-              {!result.configured ? <Badge tone="red">{t('wizard.control.notConfigured')}</Badge>
-                : result.status?.running === true ? <Badge tone="green" dot pulse>{t('wizard.control.statusRunning')}{result.status.pid ? ` · PID ${result.status.pid}` : ''}</Badge>
-                  : result.status?.running === false ? <Badge tone="amber">{t('wizard.control.statusStopped')}</Badge>
-                    : <Badge tone="slate">{t('wizard.control.statusUnknown')}</Badge>}
+              {!result.configured ? <Badge tone="danger">{t('wizard.control.notConfigured')}</Badge>
+                : result.status?.running === true ? <Badge tone="success" dot pulse>{t('wizard.control.statusRunning')}{result.status.pid ? ` · PID ${result.status.pid}` : ''}</Badge>
+                  : result.status?.running === false ? <Badge tone="warning">{t('wizard.control.statusStopped')}</Badge>
+                    : <Badge tone="neutral">{t('wizard.control.statusUnknown')}</Badge>}
               {result.status?.detail && <span className="font-mono text-xs text-slate-500">{result.status.detail}</span>}
             </span>
           )}

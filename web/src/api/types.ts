@@ -559,3 +559,12 @@ export interface AutoUpdateInfo {
   ts3Configured: boolean; selfUpdate: { canUpdate: boolean; reasons: string[]; restartMode: 'systemd' | 'manual' };
 }
 export interface MaintenanceStatus { active: { kind: string; by: string; startedAt: string; detail: string } | null }
+
+/** GET /api/overview – Kopfleiste und Dashboard-Kacheln. */
+export interface Overview {
+  spark: { minutes: number; clients: (number | null)[]; up: (number | null)[]; down: (number | null)[]; ping: (number | null)[] };
+  /** null: kein Backup vorhanden oder kein Recht backups.view */
+  lastBackup: { id: string; createdAt: string; trigger: string; ok: boolean } | null;
+  /** null: kein Recht system.view */
+  updates: { ts3: { available: boolean; latest: string | null }; webinterface: { available: boolean; latest: string | null } } | null;
+}

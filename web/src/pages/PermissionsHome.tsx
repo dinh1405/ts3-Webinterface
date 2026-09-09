@@ -10,7 +10,7 @@ import { formatDate } from '../lib/format';
 import { useT } from '../i18n';
 import { downloadJson, safeFileName } from '../lib/download';
 import { PERM_EXPORT_FORMAT } from '../lib/permdiff';
-import { Badge, Button, Card, ConfirmDialog, EmptyState, ErrorBox, Field, Modal, PageHeader } from '../components/ui';
+import { Badge, Button, Card, ConfirmDialog, EmptyState, ErrorBox, Field, Modal, PageHeader, Alert } from '../components/ui';
 import { SubjectPicker, subjectKey, type SubjectRef } from '../components/SubjectPicker';
 import { isSensitiveSubject, summarizeResults } from '../components/PermTools';
 
@@ -66,7 +66,7 @@ export default function PermissionsHomePage() {
           <ul className="max-h-80 divide-y divide-slate-800/60 overflow-y-auto">
             {groups.data?.serverGroups.filter((g) => g.type !== 0).map((g) => (
               <li key={g.sgid} className="flex items-center justify-between gap-2 px-4 py-1.5 text-sm">
-                <span className="flex min-w-0 items-center gap-2"><Shield className="h-3.5 w-3.5 shrink-0 text-slate-500" /><span className="truncate">{g.name}</span>{g.type === 2 && <Badge tone="slate">Query</Badge>}</span>
+                <span className="flex min-w-0 items-center gap-2"><Shield className="h-3.5 w-3.5 shrink-0 text-slate-500" /><span className="truncate">{g.name}</span>{g.type === 2 && <Badge tone="neutral">Query</Badge>}</span>
                 <Link to={`/permissions/servergroup/${g.sgid}`} className="btn btn-ghost btn-sm"><KeyRound className="h-3.5 w-3.5" /></Link>
               </li>
             ))}
@@ -101,7 +101,7 @@ export default function PermissionsHomePage() {
                 {presets.data.presets.map((p) => (
                   <tr key={p.id}>
                     <td><p className="font-medium text-slate-100">{p.name}</p>{p.description && <p className="text-xs text-slate-500">{p.description}</p>}</td>
-                    <td>{p.kind ? <Badge tone="indigo">{t(`perms.kind.${p.kind}`)}</Badge> : <Badge tone="slate">{t('perms.preset.anyKind')}</Badge>}</td>
+                    <td>{p.kind ? <Badge tone="accent">{t(`perms.kind.${p.kind}`)}</Badge> : <Badge tone="neutral">{t('perms.preset.anyKind')}</Badge>}</td>
                     <td>{t('perms.entries', { count: p.count })}</td>
                     <td className="whitespace-nowrap text-xs text-slate-400">{formatDate(p.createdAt)}<p className="text-slate-500">{p.createdBy}</p></td>
                     <td>
@@ -133,7 +133,7 @@ export default function PermissionsHomePage() {
             </select>
           </Field>
           <p className="text-xs text-slate-500">{mode === 'merge' ? t('perms.tools.modeMergeHint') : t('perms.tools.modeReplaceHint')}</p>
-          {mode === 'replace' && sensitiveTarget && <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-amber-200">{t('perms.tools.sensitiveWarning', { name: target?.name ?? '' })}</p>}
+          {mode === 'replace' && sensitiveTarget && <Alert tone="warning" compact>{t('perms.tools.sensitiveWarning', { name: target?.name ?? '' })}</Alert>}
         </div>
       </Modal>
 

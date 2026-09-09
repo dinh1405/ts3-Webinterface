@@ -99,7 +99,7 @@ export function StepQuery({ draft, updateQuery, state, mode, controlOk, onTested
         <Button variant="primary" icon={Plug} loading={test.isPending} disabled={banWait !== null || !q.password} onClick={() => test.mutate()}>{t('wizard.query.test')}</Button>
         {banWait !== null && <span className="text-sm text-amber-300">{t('wizard.query.banned', { seconds: banWait })}</span>}
         {test.error && banWait === null && <span className="text-sm text-rose-300">{errorMessage(test.error)}</span>}
-        {result?.ok && <Badge tone="green" dot>{t('wizard.query.ok')}{result.version ? ` · TeamSpeak ${result.version.version}` : ''}</Badge>}
+        {result?.ok && <Badge tone="success" dot>{t('wizard.query.ok')}{result.version ? ` · TeamSpeak ${result.version.version}` : ''}</Badge>}
       </div>
 
       {err && (
@@ -133,7 +133,7 @@ export function StepQuery({ draft, updateQuery, state, mode, controlOk, onTested
           <div className="mb-2 flex items-center gap-2 font-medium text-slate-100">
             {!job.done && <Spinner className="h-4 w-4 text-indigo-400" />}
             {t('wizard.query.resetTitle')}
-            {job.done && (job.ok ? <Badge tone="green">{t('wizard.query.resetOk')}</Badge> : <Badge tone="red">{t('wizard.query.resetFailed')}</Badge>)}
+            {job.done && (job.ok ? <Badge tone="success">{t('wizard.query.resetOk')}</Badge> : <Badge tone="danger">{t('wizard.query.resetFailed')}</Badge>)}
           </div>
           <ol className="space-y-1 text-xs">
             {job.steps.map((s, i) => <li key={i} className={clsx('flex gap-2', s.key === 'failed' ? 'text-rose-300' : 'text-slate-300')}><span className="text-slate-500">{s.ts.slice(11, 19)}</span><span>{td(`wizard.reset.step.${s.key}`, undefined, s.key)}{s.detail ? <span className="text-slate-500"> · {s.detail}</span> : null}</span></li>)}
@@ -151,7 +151,7 @@ export function StepQuery({ draft, updateQuery, state, mode, controlOk, onTested
                   <li key={s.id}>
                     <button type="button" onClick={() => updateQuery({ serverId: 0, serverPort: s.port })} className={clsx('flex w-full items-center gap-3 rounded-lg border px-4 py-2.5 text-left transition', selected ? 'border-indigo-400 bg-indigo-500/10' : 'border-slate-800 bg-slate-900 hover:border-slate-600')}>
                       <span className="min-w-0 flex-1"><span className="block truncate font-medium text-slate-100">{s.name || `Server #${s.id}`}</span><span className="block text-xs text-slate-500">ID {s.id} · Port {s.port} · {s.clientsOnline}/{s.maxClients}</span></span>
-                      <Badge tone={s.status === 'online' ? 'green' : 'slate'}>{s.status}</Badge>
+                      <Badge tone={s.status === 'online' ? 'success' : 'neutral'}>{s.status}</Badge>
                     </button>
                   </li>
                 );

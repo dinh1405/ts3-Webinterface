@@ -10,14 +10,14 @@ import type { HistoryEvent, HistoryProfile, HistorySession } from '../api/types'
 import { useAuth } from '../lib/auth';
 import { banDuration, countryFlag, durationPresets, formatBytes, formatDate, formatDayMonth, formatDuration, formatDurationShort, formatRelative, formatShortDate } from '../lib/format';
 import { td, useT } from '../i18n';
-import { Badge, Button, Card, ConfirmDialog, EmptyState, ErrorBox, Field, FullPageSpinner, KV, Modal, PageHeader, Stat, Toggle } from '../components/ui';
+import { Badge, Button, Card, ConfirmDialog, EmptyState, ErrorBox, Field, FullPageSpinner, KV, Modal, PageHeader, Stat, Toggle, Alert, StatusText } from '../components/ui';
 import { ClientGroups } from './Clients';
 
-const EVENT_META: Record<HistoryEvent['type'], { tone: 'indigo' | 'slate' | 'amber' | 'red'; icon: typeof Tag }> = {
-  nick: { tone: 'indigo', icon: Tag },
-  move: { tone: 'slate', icon: Move },
-  kick: { tone: 'amber', icon: UserX },
-  ban: { tone: 'red', icon: Ban },
+const EVENT_META: Record<HistoryEvent['type'], { tone: 'accent' | 'neutral' | 'warning' | 'danger'; icon: typeof Tag }> = {
+  nick: { tone: 'accent', icon: Tag },
+  move: { tone: 'neutral', icon: Move },
+  kick: { tone: 'warning', icon: UserX },
+  ban: { tone: 'danger', icon: Ban },
 };
 
 /** Trennungsgrund: Schlüssel nach reasonid, Fallback der gespeicherte Text. */
@@ -78,7 +78,7 @@ export default function ClientProfilePage() {
     <div className="space-y-6">
       <Link to="/history" className="btn btn-ghost btn-sm -ml-2"><ArrowLeft className="h-4 w-4" /> {t('history.title')}</Link>
       <PageHeader
-        title={<span className="flex items-center gap-3">{id.nickname || t('profile.unknownClient')}{country && <span className="text-xl" title={country}>{countryFlag(country)}</span>}{online ? <Badge tone="green" dot pulse>online</Badge> : <Badge tone="slate">offline</Badge>}</span>}
+        title={<span className="flex items-center gap-3">{id.nickname || t('profile.unknownClient')}{country && <span className="text-xl" title={country}>{countryFlag(country)}</span>}{online ? <Badge tone="success" dot pulse>online</Badge> : <Badge tone="neutral">offline</Badge>}</span>}
         description={<span className="font-mono text-xs">{id.uid}{id.cldbid && <span className="ml-3 font-sans">DB-ID {id.cldbid}</span>}</span>}
         actions={<div className="flex flex-wrap gap-2">
           {online && <Link to="/clients" className="btn btn-secondary btn-sm"><Users className="h-3.5 w-3.5" /> {t('profile.inTree')}</Link>}
@@ -90,12 +90,12 @@ export default function ClientProfilePage() {
         </div>}
       />
 
-      {p.tracked === false && <div className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-sm text-sky-200">{t('profile.notTracked')}</div>}
+      {p.tracked === false && <Alert tone="info" compact>{t('profile.notTracked')}</Alert>}
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label={t('profile.sessions')} value={id.sessions} sub={p.live.db ? t('profile.perDb', { count: p.live.db.totalconnections }) : undefined} icon={LogIn} />
-        <Stat label={t('profile.onlineTime')} value={formatDurationShort(id.onlineSec)} sub={t('profile.sinceRecording')} icon={Clock} tone="green" />
-        <Stat label={t('profile.firstSeen')} value={formatShortDate(id.firstSeen)} sub={p.live.db?.created ? t('profile.accountSince', { date: formatShortDate(p.live.db.created) }) : formatRelative(id.firstSeen)} icon={History} tone="blue" />
+        <Stat label={t('profile.onlineTime')} value={formatDurationShort(id.onlineSec)} sub={t('profile.sinceRecording')} icon={Clock} tone="success" />
+        <Stat label={t('profile.firstSeen')} value={formatShortDate(id.firstSeen)} sub={p.live.db?.created ? t('profile.accountSince', { date: formatShortDate(p.live.db.created) }) : formatRelative(id.firstSeen)} icon={History} tone="info" />
         <Stat label={t('profile.lastSeen')} value={online ? t('profile.now') : formatShortDate(id.lastSeen)} sub={online ? 'online' : formatRelative(id.lastSeen)} icon={Globe} tone="purple" />
       </div>
 
@@ -129,7 +129,7 @@ export default function ClientProfilePage() {
               <ul className="divide-y divide-slate-800/60">
                 {p.actions.map((a) => (
                   <li key={a.id} className="flex items-start gap-3 px-5 py-2.5 text-sm">
-                    <Badge tone={a.action.includes('ban') ? 'red' : a.action.includes('kick') ? 'amber' : a.action.startsWith('group') ? 'purple' : 'indigo'}>{a.action}</Badge>
+                    <Badge tone={a.action.includes('ban') ? 'danger' : a.action.includes('kick') ? 'warning' : a.action.startsWith('group') ? 'purple' : 'accent'}>{a.action}</Badge>
                     <span className="min-w-0 flex-1 truncate text-slate-300" title={JSON.stringify(a.details)}>{Object.entries(a.details).filter(([k, v]) => v !== '' && v !== null && v !== undefined && !['uid', 'cldbid', 'clid'].includes(k)).map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : String(v)}`).join(' · ') || '–'}</span>
                     <span className="whitespace-nowrap text-xs text-slate-500">{a.username} · {formatDate(a.ts)}</span>
                   </li>
@@ -158,7 +158,7 @@ export default function ClientProfilePage() {
                 { k: 'Idle', v: formatDuration(Math.floor(online.idleTime / 1000)) },
               ] : []),
             ]} />
-            {!p.live.available && <p className="mt-3 text-xs text-amber-300">{t('profile.liveUnavailable')}</p>}
+            {!p.live.available && <StatusText tone="warning" className="mt-3 text-xs">{t('profile.liveUnavailable')}</StatusText>}
           </Card>
 
           <Card title={t('profile.nicknames')} subtitle={t('profile.distinct', { count: id.nicknames.length })} noPadding>
@@ -216,7 +216,7 @@ export default function ClientProfilePage() {
                 {p.live.bans.map((b) => (
                   <li key={b.banid} className="px-5 py-2.5 text-sm">
                     <div className="flex items-center gap-2">
-                      <Badge tone="red">{b.match === 'uid' ? 'UID' : b.match === 'ip' ? 'IP' : t('common.name')}</Badge>
+                      <Badge tone="danger">{b.match === 'uid' ? 'UID' : b.match === 'ip' ? 'IP' : t('common.name')}</Badge>
                       <span className="min-w-0 flex-1 truncate text-slate-200">{b.reason || t('profile.noReason')}</span>
                       {canBan && <Button size="sm" variant="ghost" loading={unban.isPending && unban.variables === b.banid} onClick={() => unban.mutate(b.banid)}>{t('profile.lift')}</Button>}
                     </div>
@@ -283,7 +283,7 @@ function SessionsTable({ sessions }: { sessions: HistorySession[] }) {
           {sessions.map((s) => (
             <tr key={s.id}>
               <td className="whitespace-nowrap text-xs">{formatDate(s.connectedAt)}</td>
-              <td className="whitespace-nowrap text-xs">{s.open ? <Badge tone="green" dot pulse>{t('profile.activeSession')}</Badge> : formatDate(s.disconnectedAt)}</td>
+              <td className="whitespace-nowrap text-xs">{s.open ? <Badge tone="success" dot pulse>{t('profile.activeSession')}</Badge> : formatDate(s.disconnectedAt)}</td>
               <td className="whitespace-nowrap text-right text-xs">{formatDuration(s.durationSec)}</td>
               <td className="max-w-40 truncate">{s.nickname}</td>
               <td className="font-mono text-xs">{s.ip || '–'}</td>

@@ -6,7 +6,7 @@ import { isUserCancel, passkeysSupported, signInWithPasskey } from '../lib/webau
 import { useAuth } from '../lib/auth';
 import { errorMessage } from '../api/client';
 import { useT } from '../i18n';
-import { Button, Field } from '../components/ui';
+import { Button, Field, Alert } from '../components/ui';
 
 export default function LoginPage() {
   const { login, loginMfa, applyLogin, passkeysAvailable } = useAuth();
@@ -77,7 +77,7 @@ export default function LoginPage() {
           <Field label={t('auth.mfaCode')} htmlFor="mfa-code">
             <input id="mfa-code" className="input font-mono text-lg tracking-[0.25em]" autoComplete="one-time-code" inputMode="text" autoFocus value={code} onChange={(e) => setCode(e.target.value)} required maxLength={20} />
           </Field>
-          {error && <p className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">{error}</p>}
+          {error && <Alert tone="danger" compact>{error}</Alert>}
           <Button type="submit" variant="primary" className="w-full" loading={loading} icon={ShieldCheck}>{t('auth.mfaVerify')}</Button>
           {passkeyStep && showPasskey && <Button type="button" className="w-full" loading={passkeyBusy} icon={Fingerprint} onClick={() => signInPasskey(ticket)}>{t('auth.mfaUsePasskey')}</Button>}
           <button type="button" className="flex w-full items-center justify-center gap-1 text-xs text-slate-400 hover:text-slate-200" onClick={() => { setTicket(null); setError(null); }}><ArrowLeft className="h-3 w-3" /> {t('auth.mfaBack')}</button>
@@ -95,7 +95,7 @@ export default function LoginPage() {
         <Field label={t('auth.password')} htmlFor="password">
           <input id="password" type="password" className="input" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
         </Field>
-        {error && <p className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">{error}</p>}
+        {error && <Alert tone="danger" compact>{error}</Alert>}
         <Button type="submit" variant="primary" className="w-full" loading={loading} icon={LogIn}>{t('auth.signIn')}</Button>
       </form>
       {showPasskey && (

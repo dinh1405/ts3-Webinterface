@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react';
 import { clsx } from 'clsx';
-import { AlertTriangle, CheckCircle2, CircleDashed, Info, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, CircleDashed, XCircle } from 'lucide-react';
 import type { ConfigSource, Draft, SetupState } from '../../api/setup';
 import { useT } from '../../i18n';
-import { Badge } from '../ui';
+import { Alert, Badge } from '../ui';
 
 export type StepMode = 'wizard' | 'settings';
 
@@ -31,28 +31,17 @@ export function CheckLine({ ok, label, detail, warn }: { ok: boolean | null; lab
   );
 }
 
-/** Hinweisbox (info / warn / error / success). */
+/** Hinweisbox (info / warn / error / success) – dünne Hülle um `Alert` aus dem Designsystem. */
 export function Note({ tone = 'info', children, className }: { tone?: 'info' | 'warn' | 'error' | 'success'; children: ReactNode; className?: string }) {
-  const Icon = tone === 'info' ? Info : tone === 'success' ? CheckCircle2 : tone === 'warn' ? AlertTriangle : XCircle;
-  const cls = {
-    info: 'border-sky-500/30 bg-sky-500/10 text-sky-200',
-    warn: 'border-amber-500/30 bg-amber-500/10 text-amber-200',
-    error: 'border-rose-500/30 bg-rose-500/10 text-rose-200',
-    success: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200',
-  }[tone];
-  return (
-    <div className={clsx('flex items-start gap-2 rounded-lg border px-3 py-2 text-sm', cls, className)}>
-      <Icon className="mt-0.5 h-4 w-4 shrink-0" />
-      <div className="min-w-0 flex-1 space-y-1">{children}</div>
-    </div>
-  );
+  const map = { info: 'info', warn: 'warning', error: 'danger', success: 'success' } as const;
+  return <Alert tone={map[tone]} compact className={clsx('text-sm', className)}>{children}</Alert>;
 }
 
 /** Herkunft eines Konfigurationswerts (nur in der Admin-Ansicht). */
 export function SourceBadge({ source }: { source?: ConfigSource }) {
   const { t } = useT();
   if (!source || source === 'default') return null;
-  return <Badge tone={source === 'file' ? 'indigo' : 'amber'} className="ml-2 align-middle">{source === 'file' ? t('wizard.source.file') : t('wizard.source.env')}</Badge>;
+  return <Badge tone={source === 'file' ? 'accent' : 'warning'} className="ml-2 align-middle">{source === 'file' ? t('wizard.source.file') : t('wizard.source.env')}</Badge>;
 }
 
 export function Code({ children }: { children: ReactNode }) {

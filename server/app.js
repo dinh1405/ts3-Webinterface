@@ -28,6 +28,7 @@ import inviteRoutes from './routes/invites.js';
 import historyRoutes from './routes/history.js';
 import messageRoutes from './routes/messages.js';
 import setupRoutes from './routes/setup.js';
+import overviewRoutes from './routes/overview.js';
 import { reconfigureHooks } from './config.js';
 import { appVersion } from './version.js';
 
@@ -88,6 +89,7 @@ export function createApp() {
   api.use('/history', historyRoutes);
   api.use('/messages', messageRoutes);
   api.use('/setup', setupRoutes);
+  api.use('/overview', overviewRoutes);
   api.use(notFound);
   app.use('/api', api);
 

@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -11,7 +11,8 @@ import type { Channel, Client, DbClient, GroupsResponse } from '../api/types';
 import { useAuth } from '../lib/auth';
 import { countryFlag, durationPresets, formatDate, formatDuration } from '../lib/format';
 import { t as tt, useT } from '../i18n';
-import { Badge, Button, Card, ConfirmDialog, EmptyState, ErrorBox, Field, FullPageSpinner, KV, Modal, PageHeader } from '../components/ui';
+import { useUrlAction } from '../lib/urlAction';
+import { Badge, Button, Card, ConfirmDialog, EmptyState, ErrorBox, Field, FullPageSpinner, KV, Modal, PageHeader, TabBar } from '../components/ui';
 import { ChannelFormModal, ChannelMoveModal } from '../components/ChannelForm';
 
 type ChannelAction = { type: 'edit' | 'create' | 'move' | 'delete'; cid: string; name: string };
@@ -31,9 +32,20 @@ export default function ClientsPage() {
   const [selected, setSelected] = useState<Client | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [chAction, setChAction] = useState<ChannelAction | null>(null);
+  const [focusCid, setFocusCid] = useState<string | null>(null);
+  useUrlAction('cid', setFocusCid);
   const qc = useQueryClient();
 
   const tree = useQuery({ queryKey: ['clients', 'tree'], queryFn: () => api.get<TreeResponse>('/api/clients/tree'), refetchInterval: 15000 });
+  useEffect(() => {
+    if (!focusCid || !tree.data) return;
+    const el = document.getElementById(`channel-${focusCid}`);
+    if (!el) return;
+    el.scrollIntoView({ block: 'center' });
+    el.classList.add('ring-1', 'ring-inset', 'ring-indigo-400/70', 'bg-indigo-500/10');
+    const timer = window.setTimeout(() => { el.classList.remove('ring-1', 'ring-inset', 'ring-indigo-400/70', 'bg-indigo-500/10'); setFocusCid(null); }, 2500);
+    return () => window.clearTimeout(timer);
+  }, [focusCid, tree.data]);
 
   const flatChannels = useMemo(() => {
     const out: { cid: string; pid: string; name: string; depth: number }[] = [];
@@ -83,13 +95,7 @@ export default function ClientsPage() {
         </>}
       />
 
-      <div className="mb-4 flex gap-1 rounded-lg border border-slate-800 bg-slate-900/60 p-1 w-fit">
-        {([['tree', t('clients.tab.tree'), Hash], ['list', t('clients.tab.list'), Users], ['db', t('clients.tab.db'), Database]] as const).map(([key, label, Icon]) => (
-          <button key={key} onClick={() => setTab(key)} className={clsx('flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition', tab === key ? 'bg-indigo-500/20 text-indigo-200' : 'text-slate-400 hover:text-slate-100')}>
-            <Icon className="h-4 w-4" />{label}
-          </button>
-        ))}
-      </div>
+      <TabBar value={tab} onChange={setTab} label={t('clients.title')} items={[{ value: 'tree', label: t('clients.tab.tree'), icon: Hash }, { value: 'list', label: t('clients.tab.list'), icon: Users }, { value: 'db', label: t('clients.tab.db'), icon: Database }]} />
 
       {tab !== 'db' && tree.isLoading && <FullPageSpinner />}
       {tab !== 'db' && tree.error && <ErrorBox error={tree.error} onRetry={() => tree.refetch()} />}
@@ -185,6 +191,7 @@ function ChannelNode({ ch, depth, collapsed, toggle, onSelect, canWrite, canChan
       <div
         className={clsx('group relative flex items-center gap-2 px-4 py-1.5 text-sm hover:bg-slate-800/40', isSpacer && 'opacity-60', canChannels && 'cursor-grab active:cursor-grabbing',
           zone === 'into' && 'bg-indigo-500/20 ring-1 ring-inset ring-indigo-400/60', zone === 'before' && 'shadow-[inset_0_2px_0_0_#818cf8]', zone === 'after' && 'shadow-[inset_0_-2px_0_0_#818cf8]')}
+        id={`channel-${ch.cid}`}
         style={{ paddingLeft: `${16 + depth * 20}px` }}
         draggable={canChannels}
         onDragStart={(e) => { e.dataTransfer.setData(DND_CHANNEL, ch.cid); e.dataTransfer.effectAllowed = 'move'; }}
@@ -207,8 +214,8 @@ function ChannelNode({ ch, depth, collapsed, toggle, onSelect, canWrite, canChan
             <Link to={`/files?cid=${ch.cid}`} className="btn btn-ghost btn-icon h-6 w-6" title={t('nav.files')}><FolderOpen className="h-3.5 w-3.5" /></Link>
             {canChannels && <button className="btn btn-ghost btn-icon h-6 w-6 text-rose-400" title={t('common.delete')} onClick={() => onAction({ type: 'delete', cid: ch.cid, name: ch.name })}><Trash2 className="h-3.5 w-3.5" /></button>}
           </span>
-          {ch.flagPermanent ? null : <Badge tone="slate">{ch.flagSemiPermanent ? t('clients.semiPermanent') : t('clients.temporary')}</Badge>}
-          {ch.clients.length > 0 && <Badge tone="indigo">{ch.clients.length}{ch.maxclients >= 0 ? ` / ${ch.maxclients}` : ''}</Badge>}
+          {ch.flagPermanent ? null : <Badge tone="neutral">{ch.flagSemiPermanent ? t('clients.semiPermanent') : t('clients.temporary')}</Badge>}
+          {ch.clients.length > 0 && <Badge tone="accent">{ch.clients.length}{ch.maxclients >= 0 ? ` / ${ch.maxclients}` : ''}</Badge>}
         </span>
       </div>
       {!isCollapsed && (
@@ -220,9 +227,9 @@ function ChannelNode({ ch, depth, collapsed, toggle, onSelect, canWrite, canChan
                 <ClientName c={c} />
                 <span className="ml-auto flex items-center gap-2 text-xs text-slate-500">
                   {c.country && <span title={c.country}>{countryFlag(c.country)}</span>}
-                  {c.isChannelCommander && <Badge tone="amber">{t('clients.commander')}</Badge>}
-                  {c.isPrioritySpeaker && <Badge tone="blue">{t('clients.priority')}</Badge>}
-                  {c.isRecording && <Badge tone="red">REC</Badge>}
+                  {c.isChannelCommander && <Badge tone="warning">{t('clients.commander')}</Badge>}
+                  {c.isPrioritySpeaker && <Badge tone="info">{t('clients.priority')}</Badge>}
+                  {c.isRecording && <Badge tone="danger">REC</Badge>}
                   <span className="hidden sm:inline">{t('clients.idle', { duration: formatDuration(Math.floor(c.idleTime / 1000)) })}</span>
                 </span>
               </button>
@@ -336,7 +343,7 @@ function ClientModal({ client, onClose, channels, canWrite, canBan, canGroups }:
           { k: t('clients.serverGroups'), v: c.servergroups.join(', ') || '–' },
           { k: t('clients.channelGroup'), v: c.channelGroupId },
           { k: 'Talk Power', v: String(c.talkPower) },
-          { k: t('common.status'), v: <span className="flex justify-end gap-1">{c.away && <Badge tone="slate">{t('clients.away')}</Badge>}{c.inputMuted && <Badge tone="amber">{t('clients.micOff')}</Badge>}{c.outputMuted && <Badge tone="red">{t('clients.soundOff')}</Badge>}{!c.away && !c.inputMuted && !c.outputMuted && <Badge tone="green">{t('clients.activeState')}</Badge>}</span> },
+          { k: t('common.status'), v: <span className="flex justify-end gap-1">{c.away && <Badge tone="neutral">{t('clients.away')}</Badge>}{c.inputMuted && <Badge tone="warning">{t('clients.micOff')}</Badge>}{c.outputMuted && <Badge tone="danger">{t('clients.soundOff')}</Badge>}{!c.away && !c.inputMuted && !c.outputMuted && <Badge tone="success">{t('clients.activeState')}</Badge>}</span> },
         ]} />
       )}
       {mode === 'kick' && (

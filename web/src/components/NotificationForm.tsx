@@ -76,7 +76,7 @@ export function NotificationForm({ value: form, onChange, onSave, onDiscard, onT
 function ChannelCard({ title, subtitle, enabled, onToggle, onTest, testing, ok, ro, children }: { title: string; subtitle?: string; enabled: boolean; onToggle: (v: boolean) => void; onTest: () => void; testing: boolean; ok: boolean; ro: boolean; children: ReactNode }) {
   const { t } = useT();
   return (
-    <Card title={<span className="flex items-center gap-2">{title} {ok && <Badge tone="green" dot>{t('notif.ready')}</Badge>}</span>} subtitle={subtitle}
+    <Card title={<span className="flex items-center gap-2">{title} {ok && <Badge tone="success" dot>{t('notif.ready')}</Badge>}</span>} subtitle={subtitle}
       actions={<>{!ro && <Button size="sm" icon={Send} loading={testing} disabled={!ok} onClick={onTest}>{t('notif.sendTest')}</Button>}<Toggle checked={enabled} disabled={ro} onChange={onToggle} /></>}>
       <div className={clsx('space-y-3', !enabled && 'opacity-60')}>{children}</div>
     </Card>

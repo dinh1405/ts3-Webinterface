@@ -30,9 +30,9 @@ export function SystemCheckPanel() {
             </ul>
             <div className="mt-2 flex flex-wrap gap-1.5">
               {d.plesk && <Badge tone="purple">Plesk</Badge>}
-              {d.tools.nginx && <Badge tone="blue">nginx</Badge>}
-              {(d.tools.apache2 || d.tools.httpd) && <Badge tone="blue">Apache</Badge>}
-              <Badge tone={d.configFile.exists ? 'indigo' : 'slate'}>{d.configFile.exists ? t('wizard.syscheck.configFile') : t('wizard.syscheck.envOnlyConfig')}</Badge>
+              {d.tools.nginx && <Badge tone="info">nginx</Badge>}
+              {(d.tools.apache2 || d.tools.httpd) && <Badge tone="info">Apache</Badge>}
+              <Badge tone={d.configFile.exists ? 'accent' : 'neutral'}>{d.configFile.exists ? t('wizard.syscheck.configFile') : t('wizard.syscheck.envOnlyConfig')}</Badge>
             </div>
           </div>
           <div>

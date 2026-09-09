@@ -75,16 +75,16 @@ export default function BansPage() {
                         <td className="font-mono text-xs">{b.banid}</td>
                         <td>
                           <div className="flex flex-col gap-1">
-                            {b.ip && <span className="flex items-center gap-1.5"><Badge tone="blue">IP</Badge><span className="font-mono text-xs">{b.ip}</span></span>}
+                            {b.ip && <span className="flex items-center gap-1.5"><Badge tone="info">IP</Badge><span className="font-mono text-xs">{b.ip}</span></span>}
                             {b.name && <span className="flex items-center gap-1.5"><Badge tone="purple">{t('common.name')}</Badge><span className="text-xs">{b.name}</span></span>}
-                            {b.uid && <span className="flex items-center gap-1.5"><Badge tone="indigo">UID</Badge>{canHistory ? <Link to={`/history/${encodeURIComponent(b.uid)}`} className="font-mono text-xs hover:underline" title={t('common.profileTitle')}>{b.uid}</Link> : <span className="font-mono text-xs">{b.uid}</span>}</span>}
-                            {b.mytsid && <span className="flex items-center gap-1.5"><Badge tone="amber">myTS</Badge><span className="font-mono text-xs">{b.mytsid}</span></span>}
+                            {b.uid && <span className="flex items-center gap-1.5"><Badge tone="accent">UID</Badge>{canHistory ? <Link to={`/history/${encodeURIComponent(b.uid)}`} className="font-mono text-xs hover:underline" title={t('common.profileTitle')}>{b.uid}</Link> : <span className="font-mono text-xs">{b.uid}</span>}</span>}
+                            {b.mytsid && <span className="flex items-center gap-1.5"><Badge tone="warning">myTS</Badge><span className="font-mono text-xs">{b.mytsid}</span></span>}
                           </div>
                         </td>
                         <td>{b.lastnickname || '–'}</td>
                         <td className="max-w-xs truncate" title={b.reason}>{b.reason || '–'}</td>
                         <td className="whitespace-nowrap">{formatDate(b.created)}</td>
-                        <td>{b.duration ? banDuration(b.duration) : <Badge tone="red">{t('common.permanent')}</Badge>}</td>
+                        <td>{b.duration ? banDuration(b.duration) : <Badge tone="danger">{t('common.permanent')}</Badge>}</td>
                         <td className="whitespace-nowrap">{expires ? <span title={formatDate(expires)}>{formatRelative(expires)}</span> : '–'}</td>
                         <td>{b.invokername || '–'}</td>
                         <td>{b.enforcements}</td>

@@ -8,7 +8,7 @@ import type { TotpStatus } from '../api/types';
 import { useAuth } from '../lib/auth';
 import { formatDate } from '../lib/format';
 import { useT } from '../i18n';
-import { Badge, Button, Card, Field, FullPageSpinner, Modal } from './ui';
+import { Badge, Button, Card, Field, FullPageSpinner, Modal, Alert } from './ui';
 
 type Dialog = null | 'setup-password' | 'setup-scan' | 'recovery' | 'disable' | 'new-codes';
 
@@ -74,7 +74,7 @@ export function TotpCard() {
     <Card title={<span className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-indigo-400" /> {t('account.totp.title')}</span>}>
       <p className="text-sm text-slate-400">{t('account.totp.intro')}</p>
       <div className="mt-4 flex flex-wrap items-center gap-3">
-        {s.enabled ? <Badge tone="green" dot>{t('account.totp.enabled', { date: formatDate(s.enabledAt) })}</Badge> : <Badge tone="slate">{t('account.totp.disabled')}</Badge>}
+        {s.enabled ? <Badge tone="success" dot>{t('account.totp.enabled', { date: formatDate(s.enabledAt) })}</Badge> : <Badge tone="neutral">{t('account.totp.disabled')}</Badge>}
         {s.enabled && <span className={low ? 'text-xs text-amber-300' : 'text-xs text-slate-500'}>{t('account.totp.codesLeft', { count: s.recoveryCodesLeft })}{low && ` – ${t('account.totp.codesLow')}`}</span>}
       </div>
       <div className="mt-4 flex flex-wrap gap-2">
@@ -112,7 +112,7 @@ export function TotpCard() {
       {/* Wiederherstellungscodes (nach Aktivierung oder Neuerzeugung) */}
       <Modal open={dialog === 'recovery'} onClose={done} title={t('account.totp.recoveryTitle')} size="sm"
         footer={<Button variant="primary" onClick={done}>{t('account.totp.done')}</Button>}>
-        <p className="text-sm text-amber-200">{t('account.totp.recoveryIntro')}</p>
+        <Alert tone="warning" compact>{t('account.totp.recoveryIntro')}</Alert>
         <ul className="mt-3 grid grid-cols-2 gap-1 rounded-lg border border-slate-800 bg-slate-950/60 p-3 font-mono text-sm text-slate-100">
           {(codes ?? []).map((c) => <li key={c}>{c}</li>)}
         </ul>

@@ -10,6 +10,7 @@ React frontend (dark/light theme, responsive), fully available in **English and 
 - Start/stop/restart the server, watchdog, backups with schedule and restore, TeamSpeak updates from the browser.
 - Channel tree with drag & drop, client actions, groups, full permission editor, bans, complaints, files/icons, logs, statistics.
 - Client history and profiles, notifications (Discord, Telegram, e-mail, webhook), invite links, role-based rights, audit log.
+- Command palette (Ctrl + K), keyboard shortcuts, status chips in the header, collapsible sidebar, dark and light theme.
 
 ## Screenshots
 
@@ -23,9 +24,9 @@ All screenshots show a demo server with fictional data.
 |---|---|
 | ![Setup wizard](docs/screenshots/setup-wizard.png) | ![Client profile](docs/screenshots/history-profile.png) |
 
-| Settings → Connection & installation |
+| Settings (virtual server) |
 |---|
-| ![Connection & installation](docs/screenshots/settings-connection.png) |
+| ![Settings](docs/screenshots/settings-connection.png) |
 
 ## Contents
 
@@ -107,7 +108,8 @@ Everything can be changed later under **Settings → Connection & installation**
 
 | Area | Functions |
 |---|---|
-| **Dashboard** | Process status, uptime, clients, traffic, virtual servers, **start / stop / restart**, message to all, live activity feed (SSE) |
+| **Dashboard** | Tiles with **sparklines of the last hour** (clients, bandwidth, ping) and trend, server info, virtual servers, **start / stop / restart**, message to all, live activity feed (SSE) |
+| **Interface** | **Command palette** (Ctrl/⌘ + K: pages, actions, online clients, channels), **keyboard shortcuts** (`?` overview, `G` + letter), header **status chips** (process, ServerQuery, clients online, last backup, update available), collapsible sidebar, dark/light theme, English/German, responsive |
 | **Clients & channels** | Live channel tree, online list, client details, **kick, poke, message, move, ban**, client database (search offline clients and ban them) |
 | **Groups** | Server and channel groups: create, rename, copy, delete; members, add/remove clients; channel group assignments (client ↔ channel); a client's server groups directly in the client dialog |
 | **Permission editor** | View and edit permissions of server groups, channel groups, clients, channels and client-in-channel (value, skip, negate), search and categories over all ~500 permissions, bulk save, remove single permissions; **effective permissions** of a client including origin (`permoverview`) |

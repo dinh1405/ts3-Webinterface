@@ -141,7 +141,7 @@ export default function PermissionsPage() {
                   return (
                     <tr key={d.name} className={clsx(isChanged && 'bg-amber-500/5', !isSet && !edits[d.name] && 'opacity-70')}>
                       <td>
-                        <p className="font-mono text-xs text-slate-100">{d.name} {isChanged && <Badge tone="amber" className="ml-1">{t('perms.changed')}</Badge>}{!isSet && !isChanged && <span className="ml-1 text-[10px] uppercase text-slate-500">{t('perms.notSet')}</span>}</p>
+                        <p className="font-mono text-xs text-slate-100">{d.name} {isChanged && <Badge tone="warning" className="ml-1">{t('perms.changed')}</Badge>}{!isSet && !isChanged && <span className="ml-1 text-[10px] uppercase text-slate-500">{t('perms.notSet')}</span>}</p>
                         {d.desc && <p className="max-w-xl text-xs text-slate-500">{d.desc}</p>}
                       </td>
                       <td>
@@ -168,7 +168,7 @@ export default function PermissionsPage() {
 
       {canWrite && (
         <div className="sticky bottom-4 z-10 mt-4 flex items-center justify-between gap-3 rounded-xl border border-slate-700 bg-slate-900/95 px-4 py-3 shadow-xl shadow-black/40 backdrop-blur">
-          <span className="text-sm text-slate-300">{changed.length === 0 ? t('perms.noUnsaved') : <><Badge tone="amber">{changed.length}</Badge> {t('perms.changedCount', { count: changed.length })}</>}</span>
+          <span className="text-sm text-slate-300">{changed.length === 0 ? t('perms.noUnsaved') : <><Badge tone="warning">{changed.length}</Badge> {t('perms.changedCount', { count: changed.length })}</>}</span>
           <div className="flex gap-2">
             <Button variant="ghost" icon={RotateCcw} onClick={() => setEdits({})} disabled={changed.length === 0 || save.isPending}>{t('common.discard')}</Button>
             <Button variant="primary" icon={Save} onClick={() => save.mutate()} loading={save.isPending} disabled={changed.length === 0}>{t('common.save')}</Button>
@@ -196,7 +196,7 @@ export function PermissionOverviewPage() {
   if (data.isLoading) return <FullPageSpinner />;
   if (data.error) return <ErrorBox error={data.error} onRetry={() => data.refetch()} />;
   const d = data.data!;
-  const TONE: Record<number, 'indigo' | 'purple' | 'blue' | 'amber' | 'green'> = { 0: 'indigo', 1: 'purple', 2: 'blue', 3: 'amber', 4: 'green' };
+  const TONE: Record<number, 'accent' | 'purple' | 'info' | 'warning' | 'success'> = { 0: 'accent', 1: 'purple', 2: 'info', 3: 'warning', 4: 'success' };
   return (
     <div>
       <PageHeader title={<span className="flex items-center gap-3"><Eye className="h-6 w-6 text-indigo-400" /> {t('perms.overviewTitle', { name: d.client.name || `#${cldbid}` })}</span>}
@@ -211,10 +211,10 @@ export function PermissionOverviewPage() {
                 {rows.map((p) => (
                   <tr key={`${p.name}-${p.sourceType}`}>
                     <td><p className="font-mono text-xs text-slate-100">{p.name}</p>{p.desc && <p className="max-w-xl text-xs text-slate-500">{p.desc}</p>}</td>
-                    <td className="font-mono">{isBool(p.name) ? (p.value > 0 ? <Badge tone="green">{t('perms.allowed')}</Badge> : <Badge tone="red">{t('perms.denied')}</Badge>) : p.value}</td>
+                    <td className="font-mono">{isBool(p.name) ? (p.value > 0 ? <Badge tone="success">{t('perms.allowed')}</Badge> : <Badge tone="danger">{t('perms.denied')}</Badge>) : p.value}</td>
                     <td>{p.skip ? '✓' : ''}</td>
                     <td>{p.negate ? '✓' : ''}</td>
-                    <td><Badge tone={TONE[p.sourceType] || 'slate'}>{p.source}</Badge></td>
+                    <td><Badge tone={TONE[p.sourceType] || 'neutral'}>{p.source}</Badge></td>
                   </tr>
                 ))}
               </tbody>

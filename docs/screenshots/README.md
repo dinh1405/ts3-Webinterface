@@ -7,4 +7,4 @@ Taken from a demo instance with fictional data (invented nicknames, RFC 5737 doc
 - clients.png
 - setup-wizard.png
 - history-profile.png
-- settings-connection.png
+- settings-connection.png (Settings → Virtual server tab since 1.8.0)

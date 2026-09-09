@@ -93,10 +93,10 @@ export function StepInstallation({ draft, updateTs3, updateQuery, state, mode, o
               <button type="button" onClick={() => choose(c)} className={clsx('w-full rounded-lg border px-4 py-3 text-left transition', draft.ts3.dir === c.dir ? 'border-indigo-400 bg-indigo-500/10' : 'border-slate-800 bg-slate-900 hover:border-slate-600')}>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-mono text-sm text-slate-100">{c.dir}</span>
-                  {c.running && <Badge tone="green" dot pulse>{t('wizard.install.running')}</Badge>}
-                  {c.unit && <Badge tone="blue">systemd · {c.unit}</Badge>}
+                  {c.running && <Badge tone="success" dot pulse>{t('wizard.install.running')}</Badge>}
+                  {c.unit && <Badge tone="info">systemd · {c.unit}</Badge>}
                   {c.container && <Badge tone="purple">docker · {c.container}</Badge>}
-                  {c.sources.includes('scan') && !c.running && <Badge tone="slate">{t('wizard.install.foundByScan')}</Badge>}
+                  {c.sources.includes('scan') && !c.running && <Badge tone="neutral">{t('wizard.install.foundByScan')}</Badge>}
                 </div>
                 <div className="mt-1 text-xs text-slate-500">
                   {c.owner && <>{t('wizard.install.owner')}: <span className="text-slate-300">{c.owner.name}</span>{' · '}</>}
@@ -133,9 +133,9 @@ export function StepInstallation({ draft, updateTs3, updateQuery, state, mode, o
         <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
           <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
             <span className="font-medium text-slate-100">{t('wizard.install.checkTitle')}</span>
-            {inspection.valid ? <Badge tone="green">{t('wizard.install.valid')}</Badge> : <Badge tone="red">{t('wizard.install.invalid')}</Badge>}
-            {inspection.version && <Badge tone="indigo">TeamSpeak {inspection.version}</Badge>}
-            {inspection.running && <Badge tone="green" dot pulse>{t('wizard.install.running')}{inspection.pid ? ` · PID ${inspection.pid}` : ''}</Badge>}
+            {inspection.valid ? <Badge tone="success">{t('wizard.install.valid')}</Badge> : <Badge tone="danger">{t('wizard.install.invalid')}</Badge>}
+            {inspection.version && <Badge tone="accent">TeamSpeak {inspection.version}</Badge>}
+            {inspection.running && <Badge tone="success" dot pulse>{t('wizard.install.running')}{inspection.pid ? ` · PID ${inspection.pid}` : ''}</Badge>}
           </div>
           {!inspection.exists ? <p className="text-sm text-rose-300">{t('wizard.install.dirMissing')}</p> : (
             <ul>

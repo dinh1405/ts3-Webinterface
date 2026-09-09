@@ -123,7 +123,7 @@ function WizardBody({ state, onDone }: { state: SetupState; onDone: () => Promis
         <ol className="mb-6 flex flex-wrap gap-1">
           {steps.map((s, i) => (
             <li key={s.key}>
-              <button type="button" disabled={i > idx} onClick={() => setIdx(i)} className={clsx('flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition', i === idx ? 'bg-indigo-500/15 text-indigo-200' : i < idx ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-600')}>
+              <button type="button" disabled={i > idx} onClick={() => setIdx(i)} className={clsx('flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition', i === idx ? 'bg-indigo-500/15 text-indigo-200' : i < idx ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-500')}>
                 <span className={clsx('flex h-4 w-4 items-center justify-center rounded-full text-[10px]', i < idx ? 'bg-emerald-500/20 text-emerald-300' : i === idx ? 'bg-indigo-500 text-white' : 'bg-slate-800')}>{i < idx ? <Check className="h-3 w-3" /> : i + 1}</span>
                 {s.label}
               </button>

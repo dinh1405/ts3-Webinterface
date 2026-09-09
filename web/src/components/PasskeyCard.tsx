@@ -8,7 +8,7 @@ import { useAuth } from '../lib/auth';
 import { formatDate, formatRelative } from '../lib/format';
 import { isUserCancel, passkeysSupported, registerPasskey } from '../lib/webauthn';
 import { useT } from '../i18n';
-import { Badge, Button, Card, Field, FullPageSpinner, Modal } from './ui';
+import { Badge, Button, Card, Field, FullPageSpinner, Modal, Alert } from './ui';
 
 interface PasskeyList { passkeys: PasskeyInfo[]; available: boolean; reason: 'insecure' | 'ipHost' | null; rpId: string }
 const KEY = ['me', 'passkeys'];
@@ -51,7 +51,7 @@ export function PasskeyCard() {
     <Card title={<span className="flex items-center gap-2"><Fingerprint className="h-4 w-4 text-indigo-400" /> {t('account.passkey.title')}</span>}
       actions={d.available && supported && <Button size="sm" variant="primary" icon={Plus} onClick={() => { setName(''); setPassword(''); setAdd(true); }}>{t('account.passkey.add')}</Button>}>
       <p className="text-sm text-slate-400">{t('account.passkey.intro')}</p>
-      {blocked && <p className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">{blocked}</p>}
+      {blocked && <Alert tone="warning" compact className="mt-3">{blocked}</Alert>}
       {d.passkeys.length === 0 ? (
         <p className="mt-4 text-sm text-slate-500">{t('account.passkey.none')}</p>
       ) : (
@@ -59,7 +59,7 @@ export function PasskeyCard() {
           {d.passkeys.map((p) => (
             <li key={p.id} className="flex flex-wrap items-center gap-3 py-2.5">
               <div className="min-w-0 flex-1">
-                <p className="flex items-center gap-2 font-medium text-slate-100">{p.name}{p.backedUp && <Badge tone="slate">{t('account.passkey.synced')}</Badge>}</p>
+                <p className="flex items-center gap-2 font-medium text-slate-100">{p.name}{p.backedUp && <Badge tone="neutral">{t('account.passkey.synced')}</Badge>}</p>
                 <p className="text-xs text-slate-500">{t('account.passkey.created', { date: formatDate(p.createdAt) })} · {p.lastUsedAt ? t('account.passkey.lastUsed', { when: formatRelative(p.lastUsedAt) }) : t('account.passkey.neverUsed')}</p>
               </div>
               <div className="flex gap-1">
